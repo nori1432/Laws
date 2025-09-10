@@ -337,7 +337,7 @@ def get_app():
     if app is None:
         app = create_app()
     return app
-
+application = get_app()
 if __name__ == '__main__':
     # Development server configuration
     app_instance = get_app()
@@ -348,4 +348,5 @@ if __name__ == '__main__':
         threaded=True,
         use_reloader=app_instance.config['DEBUG']
     )
+
 
