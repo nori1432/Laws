@@ -69,10 +69,10 @@ class Config:
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or 'ghre9t@gmail.com'
 
     # Frontend
-    FRONTEND_URL = os.environ.get('FRONTEND_URL') or 'http://localhost:5173'
+    FRONTEND_URL = os.environ.get('FRONTEND_URL') or 'https://lawsofsuccess-academy.vercel.app'
 
     # CORS
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:5173,http://localhost:3000,http://localhost:8081,http://localhost:19000,http://localhost:19001,http://localhost:19002,http://localhost:19003,http://localhost:19004,http://localhost:19005,http://localhost:19006,https://laws-of-success.vercel.app,https://laws-of-success-*.vercel.app').split(',')
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'https://lawsofsuccess-academy.vercel.app').split(',')
 
     # Rate Limiting
     RATELIMIT_STORAGE_URI = os.environ.get('REDIS_URL') or 'memory://'
@@ -348,3 +348,4 @@ if __name__ == '__main__':
         threaded=True,
         use_reloader=app_instance.config['DEBUG']
     )
+
