@@ -31,6 +31,13 @@ def create_application():
         # Create the app instance
         app = get_app()
         logger.info("Successfully created Flask app")
+
+        # Ensure it's a proper WSGI application
+        if not hasattr(app, 'wsgi_app'):
+            logger.warning("App doesn't have wsgi_app attribute, wrapping it")
+            from werkzeug.middleware.dispatcher import DispatcherMiddleware
+            app.wsgi_app = app.wsgi_app
+
         return app
 
     except ImportError as import_error:
@@ -84,9 +91,24 @@ def create_fallback_app():
 # Create the app instance
 app = create_application()
 
-# Export for Vercel with multiple names for compatibility
+# Export for Vercel - ensure it's a proper WSGI application
 application = app
-handler = app
+
+# Also export as a function for Vercel compatibility
+def handler(environ, start_response):
+    """WSGI handler function for Vercel"""
+    return application(environ, start_response)
+
+# For Vercel compatibility - create a simple WSGI wrapper
+class WSGIApp:
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        return self.wsgi_app(environ, start_response)
+
+# Export wrapped app for maximum compatibility
+wsgi_app = WSGIApp(app)
 
 # For debugging
 if __name__ == '__main__':
