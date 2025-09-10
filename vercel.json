@@ -9,7 +9,7 @@
       }
     },
     {
-      "src": "api/vercel_entry.py",
+      "src": "api/app.py",
       "use": "@vercel/python",
       "config": {
         "runtime": "python3.11"
@@ -32,35 +32,35 @@
     },
     {
       "src": "/api/test",
-      "dest": "/api/vercel_entry.py"
+      "dest": "/api/app.py"
     },
     {
       "src": "/api/health", 
-      "dest": "/api/vercel_entry.py"
+      "dest": "/api/app.py"
     },
     {
       "src": "/api/courses/(.*)",
-      "dest": "/api/vercel_entry.py"
+      "dest": "/api/app.py"
     },
     {
       "src": "/api/auth/(.*)",
-      "dest": "/api/vercel_entry.py"
+      "dest": "/api/app.py"
     },
     {
       "src": "/api/admin/(.*)",
-      "dest": "/api/vercel_entry.py"
+      "dest": "/api/app.py"
     },
     {
       "src": "/api/mobile/(.*)",
-      "dest": "/api/vercel_entry.py"
+      "dest": "/api/app.py"
     },
     {
       "src": "/api/contact/(.*)",
-      "dest": "/api/vercel_entry.py"
+      "dest": "/api/app.py"
     },
     {
       "src": "/api/(.*)",
-      "dest": "/api/vercel_entry.py"
+      "dest": "/api/app.py"
     },
     {
       "src": "/(.*)",
