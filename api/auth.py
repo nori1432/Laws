@@ -128,7 +128,7 @@ def login():
 
     # Skip email verification check since it's no longer required
     # Create access token
-    access_token = create_access_token(identity=user.id)
+    access_token = create_access_token(identity=str(user.id))
 
     # Get parent and students data for client users
     parent = None
@@ -216,7 +216,7 @@ def reset_password():
 @jwt_required()
 def get_current_user():
     """Get current authenticated user with associated students"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if not user:
@@ -255,7 +255,7 @@ def get_current_user():
 @jwt_required()
 def update_profile():
     """Update user profile"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if not user:
@@ -280,7 +280,7 @@ def update_profile():
 @jwt_required()
 def change_password():
     """Change user password"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if not user:

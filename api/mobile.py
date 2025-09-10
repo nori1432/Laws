@@ -32,7 +32,7 @@ def mobile_login():
     if parent and verify_password(parent.mobile_password_hash, password):
         print("Parent login successful")
         # Parent login
-        access_token = create_access_token(identity=parent.id, additional_claims={'user_type': 'parent'})
+        access_token = create_access_token(identity=str(parent.id), additional_claims={'user_type': 'parent'})
         return jsonify({
             'access_token': access_token,
             'user': {
@@ -51,7 +51,7 @@ def mobile_login():
     if student and verify_password(student.mobile_password_hash, password):
         print("Student login successful")
         # Student login
-        access_token = create_access_token(identity=student.id, additional_claims={'user_type': 'student'})
+        access_token = create_access_token(identity=str(student.id), additional_claims={'user_type': 'student'})
         return jsonify({
             'access_token': access_token,
             'user': {
@@ -69,7 +69,7 @@ def mobile_login():
 @jwt_required()
 def mobile_dashboard():
     """Get dashboard data for mobile users"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     claims = get_jwt()
     user_type = claims.get('user_type')
 
@@ -200,7 +200,7 @@ def scan_qr_code():
         return jsonify({'error': 'QR code data is required'}), 400
 
     qr_code_data = data['qr_code_data']
-    student_id = get_jwt_identity()
+    student_id = int(get_jwt_identity())
 
     # Find class with matching QR code
     class_info = Class.query.filter_by(qr_code_data=qr_code_data).first()
@@ -269,7 +269,7 @@ def scan_qr_code():
 @jwt_required()
 def get_payments():
     """Get payment information for mobile users"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     claims = get_jwt()
     user_type = claims.get('user_type')
 
@@ -315,7 +315,7 @@ def get_payments():
 @jwt_required()
 def get_schedule():
     """Get class schedule for mobile users"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     claims = get_jwt()
     user_type = claims.get('user_type')
 
@@ -366,7 +366,7 @@ def get_schedule():
 def change_mobile_password():
     """Change mobile app password"""
     data = request.get_json()
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     claims = get_jwt()
     user_type = claims.get('user_type')
 
@@ -403,7 +403,7 @@ def get_student_details(student_id):
     if user_type != 'parent':
         return jsonify({'error': 'Only parents can access student details'}), 403
 
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     # Check if the student belongs to this parent

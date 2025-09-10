@@ -296,7 +296,7 @@ def get_course_filters():
 @jwt_required()
 def register_for_course():
     """Register a student for a course"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json()
 
     if 'course_id' not in data or 'student_id' not in data:
@@ -426,7 +426,7 @@ def register_for_course():
 @jwt_required()
 def get_my_registrations():
     """Get user's registration requests"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     
     # Get parent record for client users
     parent = Parent.query.filter_by(user_id=user_id).first()
@@ -499,7 +499,7 @@ def get_my_registrations():
 @jwt_required()
 def get_payment_info():
     """Get user's payment information"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
 
     # Get user's approved registrations
     approved_registrations = Registration.query.filter_by(
@@ -533,7 +533,7 @@ def get_payment_info():
 @jwt_required()
 def create_course():
     """Create a new course (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -580,7 +580,7 @@ def create_course():
 @jwt_required()
 def update_course(course_id):
     """Update course (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -611,7 +611,7 @@ def update_course(course_id):
 @jwt_required()
 def delete_course(course_id):
     """Delete course (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -685,7 +685,7 @@ def get_course_sections(course_id):
 @jwt_required()
 def create_course_section(course_id):
     """Create a new section for a course (Admin only)"""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user or user.role != 'admin':
@@ -730,7 +730,7 @@ def create_course_section(course_id):
 @jwt_required()
 def update_course_section(section_id):
     """Update a course section (Admin only)"""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user or user.role != 'admin':
@@ -823,7 +823,7 @@ def update_course_section(section_id):
 @jwt_required()
 def delete_course_section(section_id):
     """Delete a course section (Admin only)"""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user or user.role != 'admin':
@@ -845,7 +845,7 @@ def delete_course_section(section_id):
 @jwt_required()
 def enroll_in_section(section_id):
     """Enroll user in a course section"""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     section = Class.query.get_or_404(section_id)
@@ -910,7 +910,7 @@ def enroll_in_section(section_id):
 @jwt_required()
 def unenroll_from_section(section_id):
     """Unenroll user from a course section"""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     
     enrollment = Enrollment.query.filter_by(
         student_id=current_user_id, 
@@ -932,7 +932,7 @@ def unenroll_from_section(section_id):
 @jwt_required()
 def get_user_enrollments():
     """Get user's course section enrollments"""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     
     # Get enrollments through student relationship - find students that belong to parents of this user
     enrollments = Enrollment.query.join(Student).join(Parent).filter(Parent.user_id == current_user_id, Enrollment.is_active == True).all()
@@ -970,7 +970,7 @@ def get_user_enrollments():
 @jwt_required()
 def generate_course_qr(course_id):
     """Generate QR code for course attendance"""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user or user.role != 'admin':

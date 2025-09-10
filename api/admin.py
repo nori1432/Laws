@@ -22,7 +22,7 @@ admin_bp = Blueprint('admin', __name__)
 @jwt_required()
 def get_registrations():
     """Get all registration requests (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -69,7 +69,7 @@ def get_registrations():
 @jwt_required()
 def approve_registration(registration_id):
     """Approve a registration request (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -193,7 +193,7 @@ def approve_registration(registration_id):
 @jwt_required()
 def reject_registration(registration_id):
     """Reject a registration request (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -234,7 +234,7 @@ def reject_registration(registration_id):
 @jwt_required()
 def get_students():
     """Get all students with comprehensive information (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -367,7 +367,7 @@ def get_students():
 @jwt_required()
 def get_users():
     """Get all users (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -393,7 +393,7 @@ def get_users():
 @jwt_required()
 def create_student():
     """Create a new student (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -443,7 +443,7 @@ def create_student():
         }
     }), 201
     """Add a student manually (Admin only) with optional email for mobile credentials"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -582,7 +582,7 @@ def create_student():
 @jwt_required()
 def generate_class_qr(class_id):
     """Generate QR code for a class (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -643,7 +643,7 @@ def generate_class_qr(class_id):
 @jwt_required()
 def create_course():
     """Create a new course (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -700,7 +700,7 @@ def create_course():
 @jwt_required()
 def get_all_courses():
     """Get all courses (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -756,7 +756,7 @@ def get_all_courses():
 @jwt_required()
 def update_course(course_id):
     """Update a course (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -815,7 +815,7 @@ def update_course(course_id):
 @jwt_required()
 def delete_course(course_id):
     """Delete a course (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -865,7 +865,7 @@ def upload_to_imgbb(image_file):
 def get_gallery():
     """Get all gallery items (Admin only)"""
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         user = User.query.get(user_id)
 
         if user.role != 'admin':
@@ -897,7 +897,7 @@ def get_gallery():
 @jwt_required()
 def create_gallery_item():
     """Create a new gallery item (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -947,7 +947,7 @@ def create_gallery_item():
 @jwt_required()
 def delete_gallery_item(item_id):
     """Delete a gallery item (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -985,7 +985,7 @@ def get_public_gallery():
 @jwt_required()
 def assign_student_to_parent(student_id):
     """Assign a student to a parent (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -1018,7 +1018,7 @@ def assign_student_to_parent(student_id):
 @jwt_required()
 def unassign_student_from_parent(student_id):
     """Unassign a student from their parent (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -1046,7 +1046,7 @@ def unassign_student_from_parent(student_id):
 @jwt_required()
 def get_parents():
     """Get all parents (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -1072,7 +1072,7 @@ def get_parents():
 @jwt_required()
 def get_parent_students(parent_id):
     """Get all students assigned to a parent (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -1114,7 +1114,7 @@ def get_parent_students(parent_id):
 @jwt_required()
 def get_mobile_credentials():
     """Get all users with mobile credentials (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -1245,7 +1245,7 @@ def get_mobile_credentials():
 @jwt_required()
 def get_credentials_overview():
     """Get comprehensive overview of all parent and student credentials (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -1361,7 +1361,7 @@ def get_credentials_overview():
 @jwt_required()
 def associate_student_to_parent(parent_id):
     """Associate a student with a parent (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -1396,7 +1396,7 @@ def associate_student_to_parent(parent_id):
 @jwt_required()
 def regenerate_mobile_credentials(user_id):
     """Regenerate mobile credentials for a parent or student (Admin only)"""
-    admin_user_id = get_jwt_identity()
+    admin_user_id = int(get_jwt_identity())
     admin_user = User.query.get(admin_user_id)
 
     if admin_user.role != 'admin':
@@ -1463,7 +1463,7 @@ def regenerate_mobile_credentials(user_id):
 @jwt_required()
 def get_single_mobile_credentials(user_id):
     """Get mobile credentials for a specific user (Admin only) - shows actual password temporarily"""
-    admin_user_id = get_jwt_identity()
+    admin_user_id = int(get_jwt_identity())
     admin_user = User.query.get(admin_user_id)
 
     if admin_user.role != 'admin':
@@ -1523,7 +1523,7 @@ def get_single_mobile_credentials(user_id):
 @jwt_required()
 def update_student(student_id):
     """Update a student (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -1574,7 +1574,7 @@ def update_student(student_id):
 @jwt_required()
 def delete_student(student_id):
     """Delete a student (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -1606,7 +1606,7 @@ def delete_student(student_id):
 @jwt_required()
 def toggle_student_mobile(student_id):
     """Toggle mobile app access for a student (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -1632,7 +1632,7 @@ def toggle_student_mobile(student_id):
 @jwt_required()
 def create_user():
     """Create a new user (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -1689,7 +1689,7 @@ def create_user():
 @jwt_required()
 def update_user(user_id):
     """Update a user (Admin only)"""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     current_user = User.query.get(current_user_id)
 
     if current_user.role != 'admin':
@@ -1742,7 +1742,7 @@ def update_user(user_id):
 @jwt_required()
 def delete_user(user_id):
     """Delete a user (Admin only)"""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     current_user = User.query.get(current_user_id)
 
     if current_user.role != 'admin':
@@ -1776,7 +1776,7 @@ def delete_user(user_id):
 @jwt_required()
 def toggle_user_role(user_id):
     """Toggle user role between admin and user (Admin only)"""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     current_user = User.query.get(current_user_id)
 
     if current_user.role != 'admin':
@@ -1807,7 +1807,7 @@ def toggle_user_role(user_id):
 @jwt_required()
 def update_payment_status(registration_id):
     """Update payment status for a registration (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':

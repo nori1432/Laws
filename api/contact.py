@@ -55,7 +55,7 @@ def submit_contact():
 @jwt_required()
 def get_contact_messages():
     """Get all contact messages (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -76,7 +76,7 @@ def get_contact_messages():
 @jwt_required()
 def update_message_status(message_id):
     """Update message status (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
@@ -100,7 +100,7 @@ def update_message_status(message_id):
 @jwt_required()
 def delete_message(message_id):
     """Delete a contact message (Admin only)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     if user.role != 'admin':
