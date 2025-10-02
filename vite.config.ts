@@ -8,17 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    react({
-      // Disable fast refresh to reduce warnings
-      fastRefresh: false,
-      // Disable TypeScript type checking
-      typescript: {
-        transpileOnly: true,
-        noEmit: true,
-      },
-      // Disable ESLint
-      eslint: false,
-    }),
+    react(),
   ],
   resolve: {
     alias: {
@@ -36,6 +26,19 @@ export default defineConfig({
   css: {
     // Disable CSS validation
     devSourcemap: false,
+    // Configure CSS modules
+    modules: {
+      localsConvention: 'camelCase',
+    },
+    // Configure CSS preprocessors
+    preprocessorOptions: {
+      scss: {
+        additionalData: '',
+      },
+      less: {
+        javascriptEnabled: true,
+      },
+    },
   },
   build: {
     // Disable source maps
