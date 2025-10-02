@@ -75,7 +75,7 @@ class Config:
     CORS_ORIGINS = [
         'http://localhost:5173',      # Vite dev server
         'http://localhost:3000',      # React dev server
-        'http://localhost:5000',      # Flask dev server
+        'https://lawsofsuccess.live',      # Flask dev server
         'http://127.0.0.1:5173',      # Local IP variants
         'http://127.0.0.1:3000',
         'http://127.0.0.1:5000',
@@ -406,3 +406,4 @@ if __name__ == '__main__':
         threaded=True,
         use_reloader=app_instance.config['DEBUG']
     )
+
