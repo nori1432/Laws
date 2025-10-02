@@ -15,7 +15,7 @@ from io import BytesIO
 courses_bp = Blueprint('courses', __name__)
 
 # Import models
-from models import db, Course, Registration, Student, User, Parent, Class, Enrollment
+from models import db, Course, Registration, Student, User, Parent, Class, Enrollment, Attendance, CourseSection
 
 logger = logging.getLogger(__name__)
 
@@ -295,7 +295,7 @@ def get_course_filters():
 @courses_bp.route('/register', methods=['POST'])
 @jwt_required()
 def register_for_course():
-    """Register a student for a course"""
+    """Register a student for a course - creates enrollment directly"""
     user_id = int(get_jwt_identity())
     data = request.get_json()
 
@@ -304,6 +304,7 @@ def register_for_course():
 
     course_id = data['course_id']
     student_id = data['student_id']
+    section_id = data.get('section_id')  # Optional section preference
 
     # Verify course exists and is active
     course = Course.query.get(course_id)
@@ -338,41 +339,60 @@ def register_for_course():
         # Use the actual student ID
         actual_student_id = student.id
 
-        # Check if already registered
-        existing_registration = Registration.query.filter_by(
-            user_id=user_id,
-            parent_id=parent.id,
-            course_id=course_id,
-            student_id=actual_student_id
+        # Check if already enrolled
+        existing_enrollment = Enrollment.query.filter_by(
+            student_id=actual_student_id,
+            class_id=Class.query.filter_by(course_id=course_id).subquery().c.id
         ).first()
 
-        if existing_registration:
-            return jsonify({'error': 'Already registered for this course'}), 409
+        if existing_enrollment:
+            return jsonify({'error': 'Already enrolled in this course'}), 409
 
-        # Check available seats
-        registration_count = Registration.query.filter_by(
-            course_id=course_id,
-            status='approved'
-        ).count()
+        # Get available sections for this course
+        available_sections = Class.query.filter_by(course_id=course_id, is_active=True).all()
 
-        if registration_count >= course.max_students:
-            return jsonify({'error': 'No available seats for this course'}), 409
+        if not available_sections:
+            return jsonify({'error': 'No active sections available for this course'}), 409
 
-        # Create registration for the user as student
-        registration = Registration(
-            user_id=user_id,
-            parent_id=parent.id,
-            course_id=course_id,
+        # Determine which section to assign
+        assigned_section = None
+
+        if len(available_sections) == 1:
+            # Only one section available, assign directly
+            assigned_section = available_sections[0]
+        elif section_id:
+            # User specified a section
+            assigned_section = Class.query.filter_by(id=section_id, course_id=course_id, is_active=True).first()
+            if not assigned_section:
+                return jsonify({'error': 'Specified section not found or not available'}), 400
+        else:
+            # Multiple sections available, assign to the one with most available seats
+            assigned_section = min(available_sections, 
+                                 key=lambda s: Enrollment.query.filter_by(class_id=s.id, is_active=True).count())
+
+        # Check if section has available seats
+        current_enrollments = Enrollment.query.filter_by(class_id=assigned_section.id, is_active=True).count()
+        if current_enrollments >= assigned_section.max_students:
+            return jsonify({'error': 'No available seats in the selected section'}), 409
+
+        # Create pending enrollment (requires admin approval)
+        enrollment = Enrollment(
             student_id=actual_student_id,
-            status='pending'
+            class_id=assigned_section.id,
+            is_active=False,  # Inactive until approved
+            status='pending',  # Pending admin approval
+            payment_type='session'  # Default to session-based payment
         )
 
-        db.session.add(registration)
+        db.session.add(enrollment)
         db.session.commit()
 
         return jsonify({
-            'message': 'Registration request submitted successfully',
-            'registration_id': registration.id
+            'message': 'Enrollment request submitted successfully',
+            'status': 'pending',
+            'enrollment_id': enrollment.id,
+            'section_name': assigned_section.name,
+            'next_steps': 'An admin will contact you with academy details to complete your registration'
         }), 201
 
     # Original logic for parent registering a separate student
@@ -385,47 +405,65 @@ def register_for_course():
     if not student:
         return jsonify({'error': 'Student not found or does not belong to you'}), 404
 
-    # Check if already registered
-    existing_registration = Registration.query.filter_by(
-        user_id=user_id,
-        parent_id=parent.id,
-        course_id=course_id,
-        student_id=student_id
+    # Check if already enrolled
+    existing_enrollment = Enrollment.query.join(Class).filter(
+        Enrollment.student_id == student_id,
+        Class.course_id == course_id,
+        Enrollment.is_active == True
     ).first()
 
-    if existing_registration:
-        return jsonify({'error': 'Already registered for this course'}), 409
+    if existing_enrollment:
+        return jsonify({'error': 'Already enrolled in this course'}), 409
 
-    # Check available seats
-    registration_count = Registration.query.filter_by(
-        course_id=course_id,
-        status='approved'
-    ).count()
+    # Get available sections for this course
+    available_sections = Class.query.filter_by(course_id=course_id, is_active=True).all()
 
-    if registration_count >= course.max_students:
-        return jsonify({'error': 'No available seats for this course'}), 409
+    if not available_sections:
+        return jsonify({'error': 'No active sections available for this course'}), 409
 
-    # Create registration
-    registration = Registration(
-        user_id=user_id,
-        parent_id=parent.id,
-        course_id=course_id,
+    # Determine which section to assign
+    assigned_section = None
+
+    if len(available_sections) == 1:
+        # Only one section available, assign directly
+        assigned_section = available_sections[0]
+    elif section_id:
+        # Parent specified a section
+        assigned_section = Class.query.filter_by(id=section_id, course_id=course_id, is_active=True).first()
+        if not assigned_section:
+            return jsonify({'error': 'Specified section not found or not available'}), 400
+    else:
+        # Multiple sections available, assign to the one with most available seats
+        assigned_section = min(available_sections, 
+                             key=lambda s: Enrollment.query.filter_by(class_id=s.id, is_active=True).count())
+
+    # Check if section has available seats
+    current_enrollments = Enrollment.query.filter_by(class_id=assigned_section.id, is_active=True).count()
+    if current_enrollments >= assigned_section.max_students:
+        return jsonify({'error': 'No available seats in the selected section'}), 409
+
+    # Create enrollment directly (no approval needed)
+    enrollment = Enrollment(
         student_id=student_id,
-        status='pending'
+        class_id=assigned_section.id,
+        is_active=True,
+        payment_type='session'  # Default to session-based payment
     )
 
-    db.session.add(registration)
+    db.session.add(enrollment)
     db.session.commit()
 
     return jsonify({
-        'message': 'Registration request submitted successfully',
-        'registration_id': registration.id
+        'message': 'Successfully enrolled student in course',
+        'enrollment_id': enrollment.id,
+        'section_name': assigned_section.name,
+        'payment_required': True
     }), 201
 
 @courses_bp.route('/my-registrations', methods=['GET'])
 @jwt_required()
 def get_my_registrations():
-    """Get user's registration requests"""
+    """Get user's enrollments (formerly registrations)"""
     user_id = int(get_jwt_identity())
     
     # Get parent record for client users
@@ -436,7 +474,10 @@ def get_my_registrations():
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            registrations = Registration.query.filter_by(parent_id=parent.id).all()
+            # Get enrollments instead of registrations
+            enrollments = db.session.query(Enrollment).join(Student).filter(
+                Student.parent_id == parent.id
+            ).all()
             break  # Success, exit retry loop
         except Exception as e:
             if attempt == max_retries - 1:  # Last attempt
@@ -448,52 +489,41 @@ def get_my_registrations():
             logger.warning(f"Database attempt {attempt + 1} failed: {e}")
             time.sleep(1)  # Wait 1 second before retry
 
-    registrations_data = []
-    for reg in registrations:
-        course = Course.query.get(reg.course_id)
-        if not course:
-            continue
-            
-        # Handle case where student_id equals user_id (user registering themselves)
-        if reg.student_id == user_id:
-            # Use user information instead of student record
-            user = User.query.get(user_id)
-            student_info = {
-                'id': user.id,
-                'name': user.full_name
-            }
-        else:
-            # Get student information from students table
-            student = Student.query.get(reg.student_id)
-            if student:
-                student_info = {
-                    'id': student.id,
-                    'name': student.name
-                }
-            else:
-                # Fallback if student record not found
-                student_info = {
-                    'id': reg.student_id,
-                    'name': 'Unknown Student'
-                }
-
-        registrations_data.append({
-            'id': reg.id,
+    # Format enrollments for frontend compatibility
+    formatted_enrollments = []
+    for enrollment in enrollments:
+        course = enrollment.course
+        class_info = enrollment.class_
+        student = enrollment.student
+        
+        formatted_enrollments.append({
+            'id': enrollment.id,
             'course': {
-                'id': course.id,
-                'name': course.name,
-                'description': course.description,
-                'price': float(course.price),
-                'category': course.category,
-                'image_url': course.image_url
+                'id': course.id if course else None,
+                'name': course.name if course else 'Unknown Course',
+                'description': course.description if course else None,
+                'price': float(course.price) if course and course.price else 0,
+                'category': course.category if course else 'General',
+                'image_url': course.image_url if course else None
             },
-            'student': student_info,
-            'status': reg.status,
-            'notes': reg.notes,
-            'created_at': reg.created_at.isoformat()
+            'student': {
+                'id': student.id if student else enrollment.student_id,
+                'name': student.name if student else 'Unknown Student'
+            },
+            'section_name': class_info.name if class_info else 'Unknown Section',
+            'status': 'approved',  # All enrollments are active
+            'payment_status': enrollment.monthly_payment_status,
+            'payment_type': enrollment.payment_type,
+            'enrollment_date': enrollment.enrollment_date.isoformat() if enrollment.enrollment_date else None,
+            'is_active': enrollment.is_active,
+            'total_debt': float(enrollment.total_debt) if enrollment.total_debt else 0,
+            'debt_sessions': enrollment.debt_sessions or 0
         })
 
-    return jsonify({'registrations': registrations_data}), 200
+    return jsonify({
+        'registrations': formatted_enrollments,
+        'total': len(formatted_enrollments)
+    }), 200
 
 @courses_bp.route('/payment-info', methods=['GET'])
 @jwt_required()
@@ -630,10 +660,26 @@ def delete_course(course_id):
     if active_registrations > 0:
         return jsonify({'error': 'Cannot delete course with active registrations'}), 409
 
-    db.session.delete(course)
-    db.session.commit()
+    try:
+        # Delete all registrations for this course (this will cascade to payments)
+        Registration.query.filter_by(course_id=course_id).delete()
 
-    return jsonify({'message': 'Course deleted successfully'}), 200
+        # Delete all course sections for this course (this will cascade to section enrollments)
+        CourseSection.query.filter_by(course_id=course_id).delete()
+
+        # Delete all classes for this course (this will cascade to enrollments and attendances)
+        Class.query.filter_by(course_id=course_id).delete()
+
+        # Finally delete the course
+        db.session.delete(course)
+        db.session.commit()
+
+        return jsonify({'message': 'Course and all related data deleted successfully'}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting course {course_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete course and related data'}), 500
 
 @courses_bp.route('/categories', methods=['GET'])
 def get_categories():
@@ -666,17 +712,53 @@ def get_course_sections(course_id):
         sections_data.append({
             'id': section.id,
             'course_id': section.course_id,
+            'course_name': course.name,
+            'course_category': course.category,
             'section_name': section.name,
-            'schedule': section.schedule,
-            'day_of_week': section.day_of_week,
-            'start_time': section.start_time.strftime('%H:%M') if section.start_time else None,
-            'end_time': section.end_time.strftime('%H:%M') if section.end_time else None,
+            'schedule': section.schedule,  # This will use the @property method
+            'start_date': section.start_time.strftime('%H:%M') if section.start_time else None,
+            'end_date': section.end_time.strftime('%H:%M') if section.end_time else None,
             'max_students': section.max_students,
             'current_students': enrollment_count,
-            'available_seats': max(0, section.max_students - enrollment_count),
             'is_active': section.is_active,
-            'qr_code_data': section.qr_code_data,
-            'qr_code_expires': section.qr_code_expires.isoformat() if section.qr_code_expires else None
+            'created_at': section.created_at.isoformat() if section.created_at else None
+        })
+
+    return jsonify({'sections': sections_data}), 200
+
+@courses_bp.route('/sections/all', methods=['GET'])
+def get_all_sections():
+    """Get all sections for all courses with enrollment counts"""
+    # Optimized query: Get all sections with enrollment counts in a single query
+    sections_query = db.session.query(
+        Class,
+        Course.name.label('course_name'),
+        Course.category.label('course_category'),
+        func.count(Enrollment.id).label('enrollment_count')
+    ).join(
+        Course, Class.course_id == Course.id
+    ).outerjoin(
+        Enrollment,
+        (Enrollment.class_id == Class.id) & (Enrollment.is_active == True)
+    ).filter(
+        Course.is_active == True
+    ).group_by(Class.id, Course.name, Course.category).all()
+
+    sections_data = []
+    for section, course_name, course_category, enrollment_count in sections_query:
+        sections_data.append({
+            'id': section.id,
+            'course_id': section.course_id,
+            'course_name': course_name,
+            'course_category': course_category,
+            'section_name': section.name,
+            'schedule': section.schedule,  # This will use the @property method
+            'start_date': section.start_time.strftime('%H:%M') if section.start_time else None,
+            'end_date': section.end_time.strftime('%H:%M') if section.end_time else None,
+            'max_students': section.max_students,
+            'current_students': enrollment_count,
+            'is_active': section.is_active,
+            'created_at': section.created_at.isoformat() if section.created_at else None
         })
 
     return jsonify({'sections': sections_data}), 200
@@ -715,14 +797,12 @@ def create_course_section(course_id):
             'course_id': new_section.course_id,
             'section_name': new_section.name,
             'schedule': new_section.schedule,
-            'day_of_week': new_section.day_of_week,
-            'start_time': new_section.start_time.strftime('%H:%M') if new_section.start_time else None,
-            'end_time': new_section.end_time.strftime('%H:%M') if new_section.end_time else None,
+            'start_date': new_section.start_time.strftime('%H:%M') if new_section.start_time else None,
+            'end_date': new_section.end_time.strftime('%H:%M') if new_section.end_time else None,
             'max_students': new_section.max_students,
             'current_students': new_section.current_students,
             'is_active': new_section.is_active,
-            'qr_code_data': new_section.qr_code_data,
-            'qr_code_expires': new_section.qr_code_expires.isoformat() if new_section.qr_code_expires else None
+            'created_at': new_section.created_at.isoformat() if new_section.created_at else None
         }
     }), 201
 
@@ -757,7 +837,7 @@ def update_course_section(section_id):
                 day_name = schedule_parts[0]
                 time_range = schedule_parts[1]
                 
-                # Map day name to day_of_week integer
+                # Map day name to day_of_week integer (backend: 0=Monday, 6=Sunday)
                 days_map = {
                     'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3,
                     'Friday': 4, 'Saturday': 5, 'Sunday': 6,
@@ -829,12 +909,30 @@ def delete_course_section(section_id):
     if not user or user.role != 'admin':
         return jsonify({'message': 'Admin access required'}), 403
     
+    force = request.args.get('force', 'false').lower() == 'true'
     section = Class.query.get_or_404(section_id)
     
-    # Check if there are enrollments in this section
-    enrollments = Enrollment.query.filter_by(class_id=section_id).count()
-    if enrollments > 0:
-        return jsonify({'message': 'Cannot delete section with active enrollments'}), 400
+    if not force:
+        # Check if there are enrollments in this section
+        enrollments = Enrollment.query.filter_by(class_id=section_id).count()
+        if enrollments > 0:
+            return jsonify({'message': 'Cannot delete section with active enrollments'}), 400
+    else:
+        # Force delete: Delete all enrollments and attendance records first
+        try:
+            # Delete attendance records for this section
+            attendance_records = Attendance.query.filter_by(class_id=section_id).all()
+            for attendance in attendance_records:
+                db.session.delete(attendance)
+            
+            # Delete enrollments for this section
+            enrollments = Enrollment.query.filter_by(class_id=section_id).all()
+            for enrollment in enrollments:
+                db.session.delete(enrollment)
+            
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'message': f'Error deleting related records: {str(e)}'}), 500
     
     db.session.delete(section)
     db.session.commit()
@@ -847,62 +945,68 @@ def enroll_in_section(section_id):
     """Enroll user in a course section"""
     current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
-    
+
     section = Class.query.get_or_404(section_id)
-    
+    course = section.course
+
     # Check if section is active
     if not section.is_active:
         return jsonify({'message': 'Section is not active'}), 400
-    
+
     # Check if section is full
     enrollment_count = Enrollment.query.filter_by(class_id=section_id, is_active=True).count()
     if enrollment_count >= section.max_students:
         return jsonify({'message': 'Section is full'}), 400
-    
-    # Check if user is already enrolled in this section
+
+    # Get the student for this user (assuming user has students)
+    # For now, we'll use the first student or create logic to handle this properly
+    student = Student.query.filter_by(parent_id=user.parents[0].id).first() if user.parents else None
+    if not student:
+        return jsonify({'message': 'No student found for this user'}), 400
+
+    # Check if student is already enrolled in this section
     existing_enrollment = Enrollment.query.filter_by(
-        student_id=current_user_id, 
+        student_id=student.id,
         class_id=section_id,
         is_active=True
     ).first()
-    
+
     if existing_enrollment:
         return jsonify({'message': 'Already enrolled in this section'}), 400
-    
-    # Check if user is already enrolled in another section of the same course
+
+    # Check if student is already enrolled in another section of the same course
     course_sections = Class.query.filter_by(course_id=section.course_id).all()
     section_ids = [s.id for s in course_sections]
-    
+
     existing_course_enrollment = Enrollment.query.filter(
-        Enrollment.student_id == current_user_id,
+        Enrollment.student_id == student.id,
         Enrollment.class_id.in_(section_ids),
         Enrollment.is_active == True
     ).first()
-    
+
     if existing_course_enrollment:
         return jsonify({'message': 'Already enrolled in another section of this course'}), 400
-    
-    # Create enrollment
+
+    # Create enrollment with payment type from course
     enrollment = Enrollment(
-        student_id=current_user_id,
+        student_id=student.id,
         class_id=section_id,
         enrollment_date=datetime.utcnow(),
-        is_active=True
+        is_active=True,
+        payment_type=course.pricing_type  # Set payment type from course
     )
-    
-    # Note: current_students is a property that calculates count dynamically
-    # No need to manually update it
-    
+
     db.session.add(enrollment)
     db.session.commit()
-    
+
     return jsonify({
         'message': 'Successfully enrolled in section',
         'enrollment': {
             'id': enrollment.id,
             'student_id': enrollment.student_id,
             'class_id': enrollment.class_id,
-            'enrollment_date': enrollment.enrollment_date.isoformat()
+            'enrollment_date': enrollment.enrollment_date.isoformat(),
+            'payment_type': enrollment.payment_type
         }
     }), 201
 
@@ -934,8 +1038,8 @@ def get_user_enrollments():
     """Get user's course section enrollments"""
     current_user_id = int(get_jwt_identity())
     
-    # Get enrollments through student relationship - find students that belong to parents of this user
-    enrollments = Enrollment.query.join(Student).join(Parent).filter(Parent.user_id == current_user_id, Enrollment.is_active == True).all()
+    # Get all enrollments (including pending) through student relationship - find students that belong to parents of this user
+    enrollments = Enrollment.query.join(Student).join(Parent).filter(Parent.user_id == current_user_id).all()
     
     enrollments_data = []
     for enrollment in enrollments:
@@ -949,19 +1053,37 @@ def get_user_enrollments():
                 'course_id': section.course_id,
                 'section_name': section.name,
                 'schedule': section.schedule,
-                'start_date': section.start_date.isoformat() if section.start_date else None,
-                'end_date': section.end_date.isoformat() if section.end_date else None,
-                'is_active': section.is_active
+                'start_date': section.start_time.strftime('%H:%M') if section.start_time else None,
+                'end_date': section.end_time.strftime('%H:%M') if section.end_time else None,
+                'max_students': section.max_students,
+                'current_students': section.current_students,
+                'is_active': section.is_active,
+                'created_at': section.created_at.isoformat() if section.created_at else None
             },
             'course': {
                 'id': course.id,
                 'name': course.name,
+                'name_en': course.name_en,
+                'name_ar': course.name_ar,
                 'description': course.description,
+                'description_en': course.description_en,
+                'description_ar': course.description_ar,
                 'category': course.category,
-                'price': course.price,
-                'currency': course.currency
+                'price': float(course.price),
+                'currency': 'DA',  # Algerian Dinar
+                'pricing_type': course.pricing_type,
+                'session_price': float(course.session_price) if course.session_price else None,
+                'monthly_price': float(course.monthly_price) if course.monthly_price else None,
+                'session_duration_hours': course.session_duration
             },
-            'enrollment_date': enrollment.enrollment_date.isoformat()
+            'enrollment_date': enrollment.enrollment_date.isoformat(),
+            'enrollment_status': enrollment.status,
+            'is_active': enrollment.is_active,
+            'approved_at': enrollment.approved_at.isoformat() if enrollment.approved_at else None,
+            'rejection_reason': enrollment.rejection_reason,
+            'payment_type': enrollment.payment_type,
+            'payment_status': enrollment.payment_status_display if enrollment.status == 'approved' else 'Pending Approval',
+            'sessions_this_month': enrollment.monthly_sessions_attended
         })
     
     return jsonify({'enrollments': enrollments_data}), 200

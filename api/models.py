@@ -14,15 +14,28 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    full_name = db.Column(db.String(100), nullable=False)
-    phone = db.Column(db.String(20), nullable=False)
+    full_name = db.Column(db.String(100), nullable=True)  # Can be null after barcode login
+    phone = db.Column(db.String(20), nullable=True)  # Can be null after barcode login
+    gender = db.Column(db.Enum('male', 'female'), nullable=True)  # Student gender
     role = db.Column(db.Enum('user', 'admin'), default='user')
     email_verified = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)  # Track if user account is active
     email_verification_token = db.Column(db.String(255))
     password_reset_token = db.Column(db.String(255))
     password_reset_expires = db.Column(db.DateTime)
+    profile_picture_url = db.Column(db.String(500), nullable=True)  # URL to profile picture on imgbb
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Barcode for attendance system
+    barcode = db.Column(db.String(50), unique=True)
+    
+    # Barcode setup tracking (for one-time setup via barcode scan)
+    barcode_setup_token = db.Column(db.String(255), nullable=True)  # Temporary token for barcode setup
+    barcode_setup_completed = db.Column(db.Boolean, default=False)  # Track if barcode setup is complete
+    
+    # Push notification token for mobile app
+    push_token = db.Column(db.String(255), nullable=True)
 
     # Relationships
     parents = db.relationship('Parent', backref='user', lazy=True)
@@ -33,11 +46,12 @@ class Parent(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    full_name = db.Column(db.String(100), nullable=False)
-    phone = db.Column(db.String(20), nullable=False)
+    full_name = db.Column(db.String(100), nullable=True)  # Can be null after barcode login
+    phone = db.Column(db.String(20), nullable=True)  # Can be null after barcode login
     email = db.Column(db.String(120), nullable=True)
     mobile_username = db.Column(db.String(50), unique=True)
     mobile_password_hash = db.Column(db.String(255))
+    mobile_password_plain = db.Column(db.String(50))  # Unhashed password for display
     mobile_app_enabled = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -51,18 +65,32 @@ class Student(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     parent_id = db.Column(db.Integer, db.ForeignKey('parents.id'), nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    date_of_birth = db.Column(db.Date, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # For barcode login
+    name = db.Column(db.String(100), nullable=True)  # Can be null after barcode login
+    date_of_birth = db.Column(db.Date, nullable=True)  # Can be null after barcode login
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Barcode for attendance system (same as user's barcode)
+    barcode = db.Column(db.String(50), unique=True)
 
     # Mobile app credentials for student
     mobile_username = db.Column(db.String(50), unique=True)
     mobile_password_hash = db.Column(db.String(255))
+    mobile_password_plain = db.Column(db.String(50))  # Unhashed password for display
     mobile_app_enabled = db.Column(db.Boolean, default=False)
 
+    # Card printing tracking
+    has_printed_card = db.Column(db.Boolean, default=False, nullable=False)  # Track if student card has been printed
+    
+    # QR login setup tracking
+    qr_setup_complete = db.Column(db.Boolean, default=False, nullable=False)  # Track if student completed first QR login setup
+
+    # Debt tracking
+    total_debt = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)  # Total outstanding debt for this student
+
     # Relationships
-    enrollments = db.relationship('Enrollment', backref='student', lazy=True)
-    attendances = db.relationship('Attendance', backref='student', lazy=True)
+    enrollments = db.relationship('Enrollment', back_populates='student', lazy=True)
+    attendances = db.relationship('Attendance', back_populates='student', lazy=True)
 
 class Course(db.Model):
     __tablename__ = 'courses'
@@ -86,13 +114,14 @@ class Course(db.Model):
 
     # New pricing fields for Algerian Dinar (DA) pricing
     pricing_type = db.Column(db.Enum('session', 'monthly'), default='session')  # session = per session, monthly = monthly fee
+    course_type = db.Column(db.Enum('session', 'monthly'), default='session')  # Course delivery type: session-based or monthly
     session_duration = db.Column(db.Integer)  # Duration in hours (2, 4, etc.)
     monthly_price = db.Column(db.Numeric(10, 2))  # Monthly price in DA (for monthly pricing)
     session_price = db.Column(db.Numeric(10, 2))  # Per session price in DA (for session pricing)
 
     # Relationships
-    registrations = db.relationship('Registration', backref='course', lazy=True)
-    classes = db.relationship('Class', backref='course', lazy=True)
+    registrations = db.relationship('Registration', back_populates='course', lazy=True)
+    classes = db.relationship('Class', back_populates='course', lazy=True)
 
     def get_name(self, language='en'):
         """Get course name in specified language"""
@@ -161,7 +190,7 @@ class Registration(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    payments = db.relationship('Payment', backref='registration', lazy=True)
+    course = db.relationship('Course', back_populates='registrations', lazy=True)
 
 class Class(db.Model):
     __tablename__ = 'classes'
@@ -181,14 +210,16 @@ class Class(db.Model):
     qr_code_expires = db.Column(db.DateTime)  # When QR code expires
 
     # Relationships
-    enrollments = db.relationship('Enrollment', backref='class_', lazy=True)
-    attendances = db.relationship('Attendance', backref='class_', lazy=True)
+    enrollments = db.relationship('Enrollment', back_populates='class_', lazy=True)
+    attendances = db.relationship('Attendance', back_populates='class_', lazy=True)
+    course = db.relationship('Course', back_populates='classes', lazy=True)
 
     @property
     def schedule(self):
         """Generate schedule string from day_of_week, start_time, end_time"""
         if self.day_of_week is not None and self.day_of_week != -1 and self.start_time and self.end_time:
-            days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            # Use abbreviated day names to match backend mapping (Monday=0, Sunday=6)
+            days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
             day_name = days[self.day_of_week] if 0 <= self.day_of_week < len(days) else 'Unknown'
             start_str = self.start_time.strftime('%H:%M') if self.start_time else '00:00'
             end_str = self.end_time.strftime('%H:%M') if self.end_time else '00:00'
@@ -213,6 +244,91 @@ class Enrollment(db.Model):
     class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
     enrollment_date = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
+    
+    # Enrollment approval system
+    status = db.Column(db.Enum('pending', 'approved', 'rejected'), default='pending')
+    approved_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Admin who approved
+    approved_at = db.Column(db.DateTime, nullable=True)
+    rejection_reason = db.Column(db.Text, nullable=True)  # Reason for rejection
+
+    # Simplified payment tracking - ONLY attendance-based payments
+    payment_type = db.Column(db.Enum('session', 'monthly'), default='session')
+    monthly_sessions_attended = db.Column(db.Integer, default=0)  # Sessions this month (0-4)
+    monthly_payment_status = db.Column(db.Enum('pending', 'paid'), default='pending')  # This month's payment
+    last_payment_date = db.Column(db.DateTime)
+    next_payment_due = db.Column(db.DateTime)
+
+    # Debt tracking
+    total_debt = db.Column(db.Numeric(10, 2), default=0)  # Total outstanding debt
+    debt_sessions = db.Column(db.Integer, default=0)  # Number of unpaid sessions
+
+    # Relationships
+    student = db.relationship('Student', back_populates='enrollments', lazy=True)
+    class_ = db.relationship('Class', back_populates='enrollments', lazy=True)
+    approver = db.relationship('User', foreign_keys=[approved_by], lazy=True)
+
+    @property
+    def course(self):
+        """Get the course for this enrollment"""
+        return self.class_.course if self.class_ else None
+
+    @property
+    def progress_percentage(self):
+        """Get progress percentage for monthly payments (0-100)"""
+        if self.payment_type == 'monthly':
+            # Handle None value for monthly_sessions_attended
+            sessions_attended = self.monthly_sessions_attended or 0
+            return min((sessions_attended / 4) * 100, 100)
+        return 100  # Session-based is always 100%
+
+    @property
+    def payment_status_display(self):
+        """Get simple payment status display - attendance-based only"""
+        if self.payment_type == 'monthly':
+            if (self.monthly_sessions_attended or 0) >= 4 and self.monthly_payment_status != 'paid':
+                return f'Monthly Payment Due ({self.monthly_sessions_attended or 0}/4 sessions)'
+            else:
+                return f'All Clear ({self.monthly_sessions_attended or 0}/4 sessions)'
+        else:  # session
+            return 'Pay per Session'
+
+    @property
+    def is_payment_required(self):
+        """Check if payment is currently required - attendance-based only"""
+        if self.payment_type == 'monthly':
+            return ((self.monthly_sessions_attended or 0) >= 4 and self.monthly_payment_status != 'paid')
+        return False  # Session payments are handled per attendance
+
+    @property
+    def total_unpaid_amount(self):
+        """Calculate total unpaid amount for this enrollment - attendance-based only"""
+        course = self.course
+        if not course:
+            return 0.0
+            
+        total = 0.0
+        
+        # Monthly payment (if applicable)
+        if self.payment_type == 'monthly' and (self.monthly_sessions_attended or 0) >= 4 and self.monthly_payment_status != 'paid':
+            if course.pricing_type == 'monthly' and course.monthly_price:
+                total += float(course.monthly_price)
+            elif course.pricing_type == 'session' and course.session_price:
+                total += float(course.session_price)
+            else:
+                total += float(course.price)
+                
+        return total
+
+    @property
+    def is_payment_overdue(self):
+        """Check if payment is overdue"""
+        # For now, consider overdue if payment is required
+        return self.is_payment_required
+
+    @property
+    def sessions_this_month(self):
+        """Get sessions attended this month"""
+        return self.monthly_sessions_attended
 
 class Attendance(db.Model):
     __tablename__ = 'attendances'
@@ -228,22 +344,28 @@ class Attendance(db.Model):
     # QR Code attendance tracking
     qr_code_scanned = db.Column(db.Boolean, default=False)
     qr_scan_time = db.Column(db.DateTime)
-    device_info = db.Column(db.String(255))  # Mobile device information
 
-class Payment(db.Model):
-    __tablename__ = 'payments'
+    # Payment tracking for session-based payments
+    payment_status = db.Column(db.Enum('paid', 'unpaid', 'debt'), default='unpaid')  # paid, unpaid, debt
+    payment_amount = db.Column(db.Numeric(10, 2))  # Amount paid for this session
+    payment_date = db.Column(db.DateTime)  # When payment was collected
 
-    id = db.Column(db.Integer, primary_key=True)
-    registration_id = db.Column(db.Integer, db.ForeignKey('registrations.id'), nullable=False)
-    amount = db.Column(db.Numeric(10, 2), nullable=False)
-    due_date = db.Column(db.Date, nullable=False)
-    paid_date = db.Column(db.Date)
-    status = db.Column(db.Enum('pending', 'paid', 'overdue'), default='pending')
-    payment_method = db.Column(db.String(50))
-    transaction_id = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Relationships
+    student = db.relationship('Student', back_populates='attendances', lazy=True)
+    class_ = db.relationship('Class', back_populates='attendances', lazy=True)
 
 class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    action = db.Column(db.String(100), nullable=False)
+    resource_type = db.Column(db.String(50), nullable=False)
+    resource_id = db.Column(db.Integer)
+    details = db.Column(db.Text)
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     __tablename__ = 'audit_logs'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -261,14 +383,35 @@ class Notification(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    message = db.Column(db.Text, nullable=False)
-    type = db.Column(db.Enum('info', 'warning', 'success', 'error'), default='info')
+    # Bilingual title fields
+    title_en = db.Column(db.String(200), nullable=True)  # English title
+    title_ar = db.Column(db.String(200), nullable=True)  # Arabic title
+    # Bilingual message fields
+    message_en = db.Column(db.Text, nullable=True)  # English message
+    message_ar = db.Column(db.Text, nullable=True)  # Arabic message
+    # Legacy fields for backward compatibility
+    title = db.Column(db.String(200), nullable=True)  # Will be deprecated
+    message = db.Column(db.Text, nullable=True)  # Will be deprecated
+    type = db.Column(db.Enum('info', 'warning', 'success', 'error', 'attendance', 'payment', 'debt', 'payment_due'), default='info')
     is_read = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
     user = db.relationship('User', backref='notifications', lazy=True)
+
+    def get_title(self, language='en'):
+        """Get title in specified language, fallback to other language or legacy field"""
+        if language == 'ar':
+            return self.title_ar or self.title_en or self.title
+        else:
+            return self.title_en or self.title_ar or self.title
+
+    def get_message(self, language='en'):
+        """Get message in specified language, fallback to other language or legacy field"""
+        if language == 'ar':
+            return self.message_ar or self.message_en or self.message
+        else:
+            return self.message_en or self.message_ar or self.message
 
 class CourseSection(db.Model):
     __tablename__ = 'course_sections'
@@ -322,6 +465,22 @@ class UserSettings(db.Model):
 
     # Relationships
     user = db.relationship('User', backref='settings', lazy=True)
+
+class ContactMessage(db.Model):
+    __tablename__ = 'contact_messages'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    subject = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    status = db.Column(db.Enum('open', 'responded', 'closed'), default='open')
+    admin_response = db.Column(db.Text)
+    admin_response_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = db.relationship('User', backref='contact_messages', lazy=True)
 
 # Add to_dict methods to models for serialization
 def user_to_dict(user, exclude_password=True):

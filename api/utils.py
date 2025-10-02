@@ -25,28 +25,19 @@ def generate_password_reset_token():
     return secrets.token_urlsafe(32)
 
 def generate_mobile_credentials():
-    """Generate username and password for mobile app access"""
-    username = f"stu{secrets.token_hex(4)}"
+    """Generate password for mobile app access (no username needed)"""
     password = secrets.token_hex(8)
-    return username, password
+    return password
 
 def generate_parent_mobile_credentials(parent_name):
-    """Generate username and password for parent mobile app access"""
-    # Clean the name and create username: firstname + random numbers
-    clean_name = ''.join(c for c in parent_name.split()[0] if c.isalnum()).lower()
-    random_suffix = str(secrets.randbelow(9000) + 1000)  # 4-digit random number
-    username = f"{clean_name}{random_suffix}"
+    """Generate password for parent mobile app access (no username needed)"""
     password = secrets.token_hex(8)
-    return username, password
+    return password
 
 def generate_student_mobile_credentials(student_name):
-    """Generate username and password for student mobile app access"""
-    # Clean the name and create username: firstname + random numbers
-    clean_name = ''.join(c for c in student_name.split()[0] if c.isalnum()).lower()
-    random_suffix = str(secrets.randbelow(9000) + 1000)  # 4-digit random number
-    username = f"{clean_name}{random_suffix}"
+    """Generate password for student mobile app access (no username needed)"""
     password = secrets.token_hex(8)
-    return username, password
+    return password
 
 def send_email(to, subject, html_body, text_body=None):
     """Send email using Flask-Mail"""
@@ -73,6 +64,172 @@ def generate_qr_code(data, size=200):
     img.save(buffer, format='PNG')
     img_str = base64.b64encode(buffer.getvalue()).decode()
     return f"data:image/png;base64,{img_str}"
+
+def generate_barcode(length=12):
+    """Generate a unique barcode string"""
+    import string
+    import random
+    from models import User, Student
+
+    characters = string.ascii_uppercase + string.digits
+    while True:
+        barcode = ''.join(random.choice(characters) for _ in range(length))
+        # Check if barcode already exists
+        if not User.query.filter_by(barcode=barcode).first() and not Student.query.filter_by(barcode=barcode).first():
+            return barcode
+
+def generate_barcode_image(barcode_data, width=300, height=100):
+    """Generate barcode image and return as base64 string"""
+    try:
+        import barcode
+        from barcode.writer import ImageWriter
+        from io import BytesIO
+
+        # Generate barcode
+        code128 = barcode.get('code128', barcode_data, writer=ImageWriter())
+        buffer = BytesIO()
+        code128.write(buffer, options={'module_width': 0.4, 'module_height': 15, 'quiet_zone': 1, 'font_size': 10, 'text_distance': 5})
+
+        # Convert to base64
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        return f"data:image/png;base64,{img_str}"
+    except ImportError:
+        # Fallback if python-barcode is not installed
+        return None
+
+def find_closest_course_for_attendance(scan_time, student_id):
+    """Find the closest course to the scan time within 1 hour window"""
+    from models import Enrollment, Class, Attendance
+    from datetime import datetime, timedelta
+    import calendar
+
+    scan_datetime = datetime.fromisoformat(scan_time.replace('Z', '+00:00'))
+    scan_date = scan_datetime.date()
+    scan_time_only = scan_datetime.time()
+
+    # Get all active enrollments for the student
+    enrollments = Enrollment.query.filter_by(
+        student_id=student_id,
+        is_active=True
+    ).all()
+
+    if not enrollments:
+        return None, "No active enrollments found"
+
+    closest_course = None
+    min_time_diff = timedelta(hours=1)  # 1 hour window
+    course_info = None
+
+    for enrollment in enrollments:
+        class_obj = enrollment.class_
+
+        if not class_obj or not class_obj.is_active:
+            continue
+
+        # Check if today is the scheduled day for this class
+        if class_obj.day_of_week != scan_datetime.weekday():
+            continue
+
+        # Calculate time difference
+        class_start = class_obj.start_time
+        time_diff = abs(datetime.combine(scan_date, scan_time_only) - datetime.combine(scan_date, class_start))
+
+        # Check if within 1 hour window (before or after class start)
+        if time_diff <= timedelta(hours=1):
+            if time_diff < min_time_diff:
+                min_time_diff = time_diff
+                closest_course = class_obj
+                course_info = {
+                    'class_id': class_obj.id,
+                    'course_name': class_obj.course.name if class_obj.course else 'Unknown Course',
+                    'class_name': class_obj.name,
+                    'scheduled_time': class_obj.start_time.strftime('%H:%M'),
+                    'scan_time': scan_time_only.strftime('%H:%M'),
+                    'time_diff_minutes': int(time_diff.total_seconds() / 60),
+                    'is_late': scan_time_only > class_obj.start_time
+                }
+
+    if closest_course:
+        return closest_course, course_info
+    else:
+        return None, "No course found within 1 hour of scan time"
+
+def mark_attendance_with_barcode(barcode, admin_id, scan_time=None):
+    """Mark attendance using barcode scan"""
+    from models import User, Student, Attendance, db
+    from datetime import datetime
+
+    if not scan_time:
+        scan_time = datetime.utcnow()
+
+    # Find user/student by barcode
+    user = User.query.filter_by(barcode=barcode).first()
+    student = Student.query.filter_by(barcode=barcode).first()
+
+    if not user and not student:
+        return False, "Barcode not found"
+
+    # Determine the student ID
+    if student:
+        student_id = student.id
+        student_name = student.name
+    elif user:
+        # If it's a user barcode, find their student record
+        parent = user.parents[0] if user.parents else None
+        if parent and parent.students:
+            student = parent.students[0]  # Take first student
+            student_id = student.id
+            student_name = student.name
+        else:
+            return False, "No student record found for this barcode"
+    else:
+        return False, "Invalid barcode"
+
+    # Find closest course
+    class_obj, course_info = find_closest_course_for_attendance(scan_time.isoformat(), student_id)
+
+    if not class_obj:
+        return False, course_info
+
+    # Check if attendance already exists for today
+    today = scan_time.date()
+    existing_attendance = Attendance.query.filter_by(
+        student_id=student_id,
+        class_id=class_obj.id,
+        attendance_date=today
+    ).first()
+
+    if existing_attendance:
+        return False, f"Attendance already marked for {student_name} today"
+
+    # Create new attendance record
+    attendance = Attendance(
+        student_id=student_id,
+        class_id=class_obj.id,
+        attendance_date=today,
+        status='late' if course_info['is_late'] else 'present',
+        marked_by=admin_id,
+        marked_at=scan_time,
+        qr_code_scanned=False,  # This is barcode attendance, not QR
+        qr_scan_time=scan_time,
+        device_info='Barcode Scanner'
+    )
+
+    try:
+        db.session.add(attendance)
+        db.session.commit()
+        return True, {
+            'student_name': student_name,
+            'course_name': course_info['course_name'],
+            'class_name': course_info['class_name'],
+            'status': attendance.status,
+            'scheduled_time': course_info['scheduled_time'],
+            'scan_time': course_info['scan_time'],
+            'time_diff_minutes': course_info['time_diff_minutes']
+        }
+    except Exception as e:
+        db.session.rollback()
+        return False, f"Failed to save attendance: {str(e)}"
 
 def create_email_template(title, content, button_text=None, button_url=None):
     """Create beautiful HTML email template"""
@@ -313,7 +470,7 @@ def send_registration_rejected_email(user_email, student_name, course_name, reje
     </ul>
     <p>For further information or to discuss your options, please contact us at:</p>
     <p><strong>Phone:</strong> 0549322594</p>
-    <p><strong>Email:</strong> info@lawsofsuccess.com</p>
+    <p><strong>Email:</strong> successroadacademy@outlook.fr</p>
     <p>We wish you the best in your educational journey.</p>
     """
 
@@ -323,3 +480,39 @@ def send_registration_rejected_email(user_email, student_name, course_name, reje
     )
 
     send_email(user_email, f"Registration Update - {student_name}", html_body)
+
+def send_admin_response_email(message, admin_user):
+    """Send email notification to user about admin response to their contact message"""
+    user_email = message.user.email
+    user_name = message.user.full_name
+    subject = f"Re: {message.subject}"
+    
+    content = f"""
+    <p>Dear {user_name},</p>
+    
+    <p>Thank you for contacting Laws of Success Academy. We have received your message and would like to provide the following response:</p>
+    
+    <div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0;">
+        <p><strong>Your original message:</strong></p>
+        <p>{message.message}</p>
+    </div>
+    
+    <div style="background-color: #e9ecef; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0;">
+        <p><strong>Admin Response:</strong></p>
+        <p>{message.admin_response}</p>
+    </div>
+    
+    <p>If you have any further questions or need additional assistance, please don't hesitate to contact us again.</p>
+    
+    <p>Best regards,<br>
+    Laws of Success Academy Administration<br>
+    Email: successroadacademy@outlook.fr<br>
+    Phone: 0549322594</p>
+    """
+
+    html_body = create_email_template(
+        subject,
+        content
+    )
+
+    send_email(user_email, subject, html_body)

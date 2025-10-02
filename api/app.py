@@ -17,6 +17,8 @@ from courses import courses_bp
 from admin import admin_bp
 from mobile import mobile_bp
 from contact import contact_bp
+from payments import payments_bp
+from attendance import attendance_bp
 
 # Configure logging
 logging.basicConfig(
@@ -42,16 +44,14 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
         'pool_recycle': 300,
-        'pool_size': 3,  # Further reduced pool size
-        'max_overflow': 5,  # Further reduced max overflow
+        'pool_size': 2,  # Reduced pool size
+        'max_overflow': 3,  # Reduced max overflow
+        'pool_timeout': 30,  # Increased connection pool timeout
         'connect_args': {
-            'connect_timeout': 30,  # Increased timeout to 30 seconds
-            'read_timeout': 30,
-            'write_timeout': 30,
-            'autocommit': True,
-        },
-        'pool_timeout': 30,  # Connection pool timeout
-        'pool_pre_ping': True,  # Test connections before using them
+            'connect_timeout': 30,  # Increased connection timeout
+            'read_timeout': 60,     # Increased read timeout for complex queries
+            'write_timeout': 30     # Write timeout
+        }
     }
 
     # JWT
@@ -69,10 +69,26 @@ class Config:
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or 'ghre9t@gmail.com'
 
     # Frontend
-    FRONTEND_URL = os.environ.get('FRONTEND_URL') or 'https://lawsofsuccess-academy.vercel.app'
+    FRONTEND_URL = os.environ.get('FRONTEND_URL') or 'http://localhost:5173'
 
-    # CORS
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'https://lawsofsuccess-academy.vercel.app').split(',')
+    # CORS - Allow all origins for mobile app compatibility
+    CORS_ORIGINS = [
+        'http://localhost:5173',      # Vite dev server
+        'http://localhost:3000',      # React dev server
+        'http://localhost:5000',      # Flask dev server
+        'http://127.0.0.1:5173',      # Local IP variants
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:5000',
+        'http://10.105.105.16:5000',  # Mobile app server IP
+        'http://10.105.105.16:5173',  # Mobile app frontend IP
+        'https://*.vercel.app',       # Vercel preview deployments
+        'https://laws-of-success.vercel.app',  # Main Vercel deployment
+        'capacitor://localhost',      # Capacitor mobile app
+        'ionic://localhost',          # Ionic mobile app
+        'http://localhost',           # Generic localhost
+        'file://',                    # File protocol for mobile apps
+        '*'                          # Fallback for mobile apps
+    ]
 
     # Rate Limiting
     RATELIMIT_STORAGE_URI = os.environ.get('REDIS_URL') or 'memory://'
@@ -104,7 +120,8 @@ def register_jwt_error_handlers(jwt_manager):
         logger.warning(f"Invalid JWT token: {error}")
         return jsonify({
             'error': 'Invalid Token',
-            'message': 'Invalid authentication token'
+            'message': 'Invalid authentication token. Please login again.',
+            'code': 'INVALID_TOKEN'
         }), 401
 
     @jwt_manager.unauthorized_loader
@@ -112,8 +129,14 @@ def register_jwt_error_handlers(jwt_manager):
         logger.warning(f"Unauthorized access: {error}")
         return jsonify({
             'error': 'Authorization Required',
-            'message': 'Authentication token is required'
+            'message': 'Authentication token is required. Please login.',
+            'code': 'MISSING_TOKEN'
         }), 401
+        
+    @jwt_manager.token_in_blocklist_loader
+    def check_if_token_revoked(jwt_header, jwt_payload):
+        # For now, we don't maintain a blocklist
+        return False
 
 def create_app(config_class=Config):
     """Application factory pattern"""
@@ -121,6 +144,72 @@ def create_app(config_class=Config):
 
     # Load configuration
     app.config.from_object(config_class)
+
+    # Initialize CORS - Comprehensive configuration for mobile app and web compatibility
+    CORS(app, 
+         origins=['*'],  # Allow all origins for mobile compatibility
+         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+         allow_headers=[
+             'Content-Type', 
+             'Authorization', 
+             'X-Requested-With', 
+             'Accept', 
+             'Origin',
+             'Access-Control-Request-Method',
+             'Access-Control-Request-Headers',
+             'X-Custom-Header',
+             'Cache-Control',
+             'Pragma',
+             'Expires'
+         ],
+         expose_headers=['Content-Type', 'Authorization', 'X-Total-Count'],
+         supports_credentials=False,  # Keep false for wildcard origin
+         send_wildcard=True,          # Allow wildcard for mobile apps
+         vary_header=False,           # Disable for mobile compatibility
+         intercept_exceptions=False
+    )
+
+    # Additional CORS headers for problematic requests
+    @app.before_request
+    def handle_preflight():
+        if request.method == "OPTIONS":
+            response = jsonify({"status": "preflight success"})
+            origin = request.headers.get('Origin')
+            
+            # Allow the specific origin or all origins
+            if origin:
+                response.headers.add("Access-Control-Allow-Origin", origin)
+            else:
+                response.headers.add("Access-Control-Allow-Origin", "*")
+                
+            response.headers.add('Access-Control-Allow-Headers', 
+                               'Content-Type,Authorization,X-Requested-With,Accept,Origin,Cache-Control,Pragma')
+            response.headers.add('Access-Control-Allow-Methods', 
+                               'GET,POST,PUT,DELETE,OPTIONS,PATCH,HEAD')
+            response.headers.add('Access-Control-Max-Age', '86400')
+            return response
+
+    @app.after_request
+    def after_request(response):
+        # Set CORS headers on all responses
+        origin = request.headers.get('Origin')
+        
+        # Always allow the requesting origin or use wildcard
+        if origin:
+            response.headers['Access-Control-Allow-Origin'] = origin
+        else:
+            response.headers['Access-Control-Allow-Origin'] = '*'
+        
+        response.headers['Access-Control-Allow-Headers'] = \
+            'Content-Type,Authorization,X-Requested-With,Accept,Origin,Cache-Control,Pragma,Expires'
+        response.headers['Access-Control-Allow-Methods'] = \
+            'GET,POST,PUT,DELETE,OPTIONS,PATCH,HEAD'
+        response.headers['Access-Control-Expose-Headers'] = \
+            'Content-Type,Authorization,X-Total-Count'
+        response.headers['Access-Control-Allow-Credentials'] = 'false'
+        response.headers['Access-Control-Max-Age'] = '86400'
+        
+        return response
 
     # Initialize extensions
     try:
@@ -135,24 +224,15 @@ def create_app(config_class=Config):
         # Register JWT error handlers
         register_jwt_error_handlers(jwt)
 
-        # Configure CORS
-        CORS(app, resources={
-            r"/api/*": {
-                "origins": app.config['CORS_ORIGINS'],
-                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-                "allow_headers": ["Content-Type", "Authorization"],
-                "expose_headers": ["Content-Range", "X-Total-Count"],
-                "supports_credentials": True
-            }
-        })
-
         # Register blueprints with error handling
         try:
             app.register_blueprint(auth_bp, url_prefix='/api/auth')
             app.register_blueprint(courses_bp, url_prefix='/api/courses')
             app.register_blueprint(admin_bp, url_prefix='/api/admin')
+            app.register_blueprint(payments_bp, url_prefix='/api/payments')  # Re-enabled payments blueprint
             app.register_blueprint(mobile_bp, url_prefix='/api/mobile')
             app.register_blueprint(contact_bp, url_prefix='/api/contact')
+            app.register_blueprint(attendance_bp, url_prefix='/api/attendance')
         except Exception as blueprint_error:
             logger.warning(f"Blueprint registration failed: {blueprint_error}")
 
@@ -289,44 +369,19 @@ def register_routes(app):
             'timestamp': time.time()
         }), 200 if db_status == 'healthy' else 503
 
-    @app.route('/api/contact', methods=['POST'])
-    # @limiter.limit("5 per minute")  # Commented out - requires flask-limiter
-    def contact():
-        """Handle contact form submissions with rate limiting"""
-        try:
-            data = request.get_json()
-
-            # Validate required fields
-            required_fields = ['name', 'email', 'subject', 'message']
-            for field in required_fields:
-                if field not in data or not data[field].strip():
-                    return jsonify({
-                        'error': 'Validation Error',
-                        'message': f'{field} is required and cannot be empty'
-                    }), 400
-
-            # Sanitize input
-            name = data['name'].strip()[:100]
-            email = data['email'].strip()[:120]
-            subject = data['subject'].strip()[:200]
-            message = data['message'].strip()[:1000]
-
-            # Log contact form submission
-            logger.info(f"Contact form submission from {email}: {subject}")
-
-            # Here you could save to database or send email
-            # For now, just return success
-            return jsonify({
-                'message': 'Thank you for your message. We will get back to you soon!',
-                'success': True
-            }), 200
-
-        except Exception as e:
-            logger.error(f"Contact form error: {e}")
-            return jsonify({
-                'error': 'Internal Server Error',
-                'message': 'Failed to process contact form'
-            }), 500
+    @app.route('/api/cors-test', methods=['GET', 'POST', 'OPTIONS'])
+    def cors_test():
+        """CORS test endpoint to verify cross-origin requests work"""
+        origin = request.headers.get('Origin', 'unknown')
+        method = request.method
+        
+        return jsonify({
+            'message': 'CORS test successful',
+            'origin': origin,
+            'method': method,
+            'headers': dict(request.headers),
+            'timestamp': time.time()
+        })
 
 # Create the application instance
 app = None
