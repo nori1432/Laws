@@ -50,6 +50,7 @@ const EnhancedScheduler: React.FC<EnhancedSchedulerProps> = ({
   onScheduleUpdate,
   onSectionUpdate
 }) => {
+  console.log('EnhancedScheduler received sections:', sections);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [selectedSection, setSelectedSection] = useState<CourseSection | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -64,10 +65,28 @@ const EnhancedScheduler: React.FC<EnhancedSchedulerProps> = ({
   const { translateCategory, getCategoryColors } = useTranslatedCategory();
 
   useEffect(() => {
+    console.log('EnhancedScheduler: Processing sections:', sections?.length || 0);
+    console.log('Sections data:', sections);
+
+    if (!sections || !Array.isArray(sections) || sections.length === 0) {
+      console.log('No sections to process or sections is not an array');
+      setScheduleEntries([]);
+      return;
+    }
+
     // Parse existing schedules
     const entries: ScheduleEntry[] = [];
     sections.forEach(section => {
+      console.log('Processing section:', section.id, 'Schedule:', section.schedule, 'Course:', section.course_name);
+
+      if (!section.schedule) {
+        console.log('Section has no schedule field');
+        return;
+      }
+
       const schedule = parseScheduleString(section.schedule);
+      console.log('Parsed schedule result:', schedule);
+
       if (schedule.day && schedule.start_time && schedule.end_time) {
         entries.push({
           id: Date.now() + Math.random(), // Unique ID for the entry
@@ -76,24 +95,55 @@ const EnhancedScheduler: React.FC<EnhancedSchedulerProps> = ({
           end_time: schedule.end_time,
           section
         });
+        console.log('Added entry for section:', section.id);
+      } else {
+        console.log('Skipped section:', section.id, 'due to invalid schedule format');
       }
     });
+    console.log('Total schedule entries created:', entries.length);
     setScheduleEntries(entries);
   }, [sections]);
 
   const parseScheduleString = (schedule: string) => {
-    if (!schedule || schedule === 'TBD') {
+    console.log('Parsing schedule string:', schedule);
+
+    if (!schedule || schedule === 'TBD' || schedule.trim() === '') {
+      console.log('Schedule is TBD or empty');
       return { day: '', start_time: '', end_time: '' };
     }
 
-    const parts = schedule.split(' ');
+    // Handle different possible formats
+    const parts = schedule.trim().split(/\s+/);
+    console.log('Schedule parts:', parts);
+
     if (parts.length >= 2) {
-      const day = parts[0];
-      const timeRange = parts[1];
-      const [start_time, end_time] = timeRange.split('-');
-      return { day, start_time, end_time };
+      let day = parts[0];
+      let timeRange = parts[1];
+
+      // Normalize day names
+      const dayMappings: { [key: string]: string } = {
+        'Sunday': 'Sun', 'Monday': 'Mon', 'Tuesday': 'Tue', 'Wednesday': 'Wed',
+        'Thursday': 'Thu', 'Friday': 'Fri', 'Saturday': 'Sat',
+        'Sun': 'Sun', 'Mon': 'Mon', 'Tue': 'Tue', 'Wed': 'Wed',
+        'Thu': 'Thu', 'Fri': 'Fri', 'Sat': 'Sat'
+      };
+
+      day = dayMappings[day] || day;
+      console.log('Normalized day:', day);
+
+      // Handle time range
+      if (timeRange.includes('-')) {
+        const [start_time, end_time] = timeRange.split('-').map(t => t.trim());
+        console.log('Parsed times:', start_time, end_time);
+
+        // Validate that we have proper day and times
+        if (day && start_time && end_time && DAYS_OF_WEEK.includes(day)) {
+          return { day, start_time, end_time };
+        }
+      }
     }
 
+    console.log('Failed to parse schedule, returning empty');
     return { day: '', start_time: '', end_time: '' };
   };
 
@@ -165,6 +215,11 @@ const EnhancedScheduler: React.FC<EnhancedSchedulerProps> = ({
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
             Manage course schedules with support for overlapping sections
+            {sections && sections.length > 0 && (
+              <span className="block mt-1 text-xs">
+                {scheduleEntries.length} scheduled, {sections.filter(s => !s.schedule || s.schedule === 'TBD').length} unscheduled
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -211,7 +266,8 @@ const EnhancedScheduler: React.FC<EnhancedSchedulerProps> = ({
                           className={`text-xs p-1 mb-1 rounded truncate ${getCategoryColors(entry.section.course_category || '').bg} ${getCategoryColors(entry.section.course_category || '').text}`}
                           title={`${entry.section.course_name} - ${entry.section.section_name} (${translateCategory(entry.section.course_category || '')})`}
                         >
-                          {entry.section.section_name}
+                          <div className="font-medium">{entry.section.course_name}</div>
+                          <div className="text-xs opacity-90">{entry.section.section_name}</div>
                         </div>
                       ))}
                     </div>
@@ -236,12 +292,18 @@ const EnhancedScheduler: React.FC<EnhancedSchedulerProps> = ({
                     {daySections.map(entry => (
                       <div key={entry.id} className={`flex items-center justify-between p-3 rounded border ${getCategoryColors(entry.section.course_category || '').border} ${getCategoryColors(entry.section.course_category || '').bg}`}>
                         <div className="flex-1">
-                          <div className="font-medium text-sm">{entry.section.course_name} - {entry.section.section_name}</div>
+                          <div className="font-medium text-sm text-foreground">{entry.section.course_name} - {entry.section.section_name}</div>
                           <div className="text-xs text-muted-foreground">
                             {entry.start_time} - {entry.end_time}
                           </div>
-                          <div className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${getCategoryColors(entry.section.course_category || '').bg} ${getCategoryColors(entry.section.course_category || '').text}`}>
-                            {translateCategory(entry.section.course_category || '')}
+                          <div className="flex items-center justify-between mt-2">
+                            <div className={`text-xs px-2 py-1 rounded-full ${getCategoryColors(entry.section.course_category || '').bg} ${getCategoryColors(entry.section.course_category || '').text}`}>
+                              {translateCategory(entry.section.course_category || '')}
+                            </div>
+                            <div className="flex items-center text-xs text-muted-foreground">
+                              <Users className="w-3 h-3 mr-1" />
+                              {entry.section.current_students} students
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -276,13 +338,13 @@ const EnhancedScheduler: React.FC<EnhancedSchedulerProps> = ({
               <div key={section.id} className={`p-4 border rounded-lg bg-background ${getCategoryColors(section.course_category || '').border}`}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h5 className="font-medium text-sm">{section.course_name} - {section.section_name}</h5>
+                    <h5 className="font-medium text-sm text-foreground">{section.course_name} - {section.section_name}</h5>
                     <div className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${getCategoryColors(section.course_category || '').bg} ${getCategoryColors(section.course_category || '').text}`}>
                       {translateCategory(section.course_category || '')}
                     </div>
                     <div className="flex items-center text-xs text-muted-foreground mt-1">
                       <Users className="w-3 h-3 mr-1" />
-                      {section.current_students}/{section.max_students} students
+                      {section.current_students} students
                     </div>
                   </div>
                   <button

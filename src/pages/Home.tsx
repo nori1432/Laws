@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Star, Users, Award, BookOpen, Mail, Phone, MapPin, Send, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getCourseName, getCourseDescription } from '../utils/courseUtils';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -26,9 +27,8 @@ interface Course {
   max_students: number;
   available_seats: number;
   is_active: boolean;
-  category?: string;
+  category: string;
   image_url?: string;
-  created_at?: string;
   session_duration_hours?: number;
 }
 
@@ -46,21 +46,6 @@ const Home: React.FC = () => {
     message: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Helper functions for multilingual content
-  const getCourseName = (course: Course): string => {
-    if (language === 'ar' && course.name_ar) {
-      return course.name_ar;
-    }
-    return course.name_en || course.name;
-  };
-
-  const getCourseDescription = (course: Course): string => {
-    if (language === 'ar' && course.description_ar) {
-      return course.description_ar;
-    }
-    return course.description_en || course.description;
-  };
 
   useEffect(() => {
     fetchCourses();
@@ -85,7 +70,7 @@ const Home: React.FC = () => {
     if (level === 'All') return courses.slice(0, 6); // Show first 6 for overview
 
     return courses.filter(course => {
-      const courseName = getCourseName(course);
+      const courseName = getCourseName(course, language);
       if (level === 'preschool') {
         return courseName.includes('روضة') ||
                courseName.includes('تمهيدي') ||
@@ -276,7 +261,8 @@ const Home: React.FC = () => {
                   { id: 'preschool', name: t('preschoolLevel'), nameEn: 'Preschool' },
                   { id: 'primary', name: t('primaryLevel'), nameEn: 'Primary' },
                   { id: 'middle', name: t('middleLevel'), nameEn: 'Middle School' },
-                  { id: 'high', name: t('highLevel'), nameEn: 'High School' }
+                  { id: 'high', name: t('highLevel'), nameEn: 'High School' },
+                  { id: 'bachelor', name: t('bachelorLevel'), nameEn: 'Bachelor' }
                 ].map((level) => (
                   <button
                     key={level.id}
@@ -303,8 +289,8 @@ const Home: React.FC = () => {
                 {getCoursesByLevel(selectedLevel).map((course) => (
                   <div key={course.id} className="bg-card rounded-xl shadow-luxury overflow-hidden hover:shadow-dark transition-all duration-300 transform hover:-translate-y-2">
                     <div className="p-6">
-                      <h3 className="text-xl font-bold text-foreground mb-2">{getCourseName(course)}</h3>
-                      <p className="text-muted-foreground mb-4 line-clamp-3">{getCourseDescription(course)}</p>
+                      <h3 className="text-xl font-bold text-foreground mb-2">{getCourseName(course, language)}</h3>
+                      <p className="text-muted-foreground mb-4 line-clamp-3">{getCourseDescription(course, language)}</p>
 
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between items-center">
@@ -406,7 +392,7 @@ const Home: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground">{t('email')}</h3>
-                      <p className="text-muted-foreground">info@lawsofsuccess.com</p>
+                      <p className="text-muted-foreground">successroadacademy@outlook.fr</p>
                     </div>
                   </div>
 
@@ -416,7 +402,7 @@ const Home: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground">{t('phone')}</h3>
-                      <p className="text-muted-foreground">+1 (555) 123-4567</p>
+                      <p className="text-muted-foreground">0791 19 74 30 / +213 791 19 74 30</p>
                     </div>
                   </div>
 
@@ -426,7 +412,7 @@ const Home: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground">{t('address')}</h3>
-                      <p className="text-muted-foreground">123 Education Street<br />Learning City, LC 12345</p>
+                      <p className="text-muted-foreground">CENTRE COMMERCIAL SIRABAH (قيصارية سي رابح)<br />Centre ville nedroma</p>
                     </div>
                   </div>
                 </div>
@@ -580,77 +566,6 @@ const Home: React.FC = () => {
                   </li>
                 </ul>
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Gallery Section */}
-      <section id="gallery" className="w-full py-20 bg-secondary">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-                {t('ourGallery')}
-              </h2>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                {t('ourGalleryDesc')}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                {
-                  id: 1,
-                  src: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=300&fit=crop',
-                  alt: 'Classroom learning',
-                  category: 'Classroom'
-                },
-                {
-                  id: 2,
-                  src: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=300&fit=crop',
-                  alt: 'Students collaborating',
-                  category: 'Activities'
-                },
-                {
-                  id: 3,
-                  src: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop',
-                  alt: 'Library study area',
-                  category: 'Facilities'
-                },
-                {
-                  id: 4,
-                  src: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop',
-                  alt: 'Science laboratory',
-                  category: 'Facilities'
-                },
-                {
-                  id: 5,
-                  src: 'https://images.unsplash.com/photo-1544717297-fa95b6ee9643?w=400&h=300&fit=crop',
-                  alt: 'Sports activities',
-                  category: 'Activities'
-                },
-                {
-                  id: 6,
-                  src: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=400&h=300&fit=crop',
-                  alt: 'Graduation ceremony',
-                  category: 'Events'
-                }
-              ].map((image) => (
-                <div key={image.id} className="group relative overflow-hidden rounded-xl shadow-luxury hover:shadow-dark transition-all duration-300 transform hover:-translate-y-2">
-                  <img
-                    src={image.src}
-                    alt={image.alt}
-                    className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <p className="text-white font-medium">{image.alt}</p>
-                      <p className="text-white/80 text-sm">{image.category}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         </div>

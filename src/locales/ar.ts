@@ -1,10 +1,10 @@
 export const arabicTranslations = {
   // Header
   welcome: 'مرحباً بك',
-  welcomeMessage: 'تمكين التعليم من خلال الابتكار',
+  welcomeMessage: 'كن عالي الهمة ولا ترضى بغير القمة',
   choosePlatform: 'اختر منصتك التعليمية المفضلة',
-  empoweringEducation: 'تمكين التعليم',
-  empoweringFuture: 'تمكين أجيال المستقبل',
+  empoweringEducation: 'كن عالي الهمة ولا ترضى بغير القمة',
+  empoweringFuture: 'كن عالي الهمة ولا ترضى بغير القمة',
 
   // Laws of Success Card
   lawsOfSuccess: 'قوانين النجاح',
@@ -78,7 +78,7 @@ export const arabicTranslations = {
   // Home Page (Laws of Success)
   welcomeTo: 'مرحباً بك في',
   academy: 'أكاديمية',
-  empoweringStudents: 'تمكين الطلاب لمستقبل ناجح من خلال التعليم المتميز، وطرق التدريس المبتكرة، والتجارب التعليمية الشخصية.',
+  empoweringStudents: 'كن عالي الهمة ولا ترضى بغير القمة من خلال التعليم المتميز، وطرق التدريس المبتكرة، والتجارب التعليمية الشخصية.',
   exploreCourses: 'استكشف الدروس',
   joinNow: 'انضم الآن',
   whyChooseUs: 'لماذا تختارنا؟',
@@ -90,6 +90,7 @@ export const arabicTranslations = {
   primaryLevel: 'ابتدائي',
   middleLevel: 'متوسط',
   highLevel: 'ثانوي',
+  bachelorLevel: 'باكالوريا',
   loadingCourses: 'جاري تحميل الدروس...',
   price: 'السعر:',
   pricingType: 'النوع:',
@@ -112,8 +113,14 @@ export const arabicTranslations = {
   message: 'الرسالة',
   sendMessage: 'إرسال الرسالة',
   sending: 'جاري الإرسال...',
+
+  // Contact Information Labels
+  contactEmail: 'البريد الإلكتروني',
+  contactPhone: 'الهاتف',
+  contactEmailValue: 'support@lawsofsuccess.com',
+  contactPhoneValue: '0549322594',
   aboutAcademy: 'حول أكاديمية قوانين النجاح',
-  aboutAcademyDesc: 'تمكين الطلاب لمستقبل ناجح من خلال التعليم المتميز',
+  aboutAcademyDesc: 'كن عالي الهمة ولا ترضى بغير القمة من خلال التعليم المتميز',
   ourMission: 'رسالتنا',
   ourMissionDesc: 'تمكين الطلاب بالمعرفة والمهارات والثقة التي يحتاجونها لتحقيق إمكاناتهم الكاملة وتقديم مساهمات ذات معنى للمجتمع.',
   ourVision: 'رؤيتنا',
@@ -133,7 +140,7 @@ export const arabicTranslations = {
 
   // About Page
   aboutPageTitle: 'حول أكاديمية قوانين النجاح',
-  aboutPageDesc: 'تمكين الطلاب لمستقبل ناجح من خلال التعليم المتميز',
+  aboutPageDesc: 'كن عالي الهمة ولا ترضى بغير القمة من خلال التعليم المتميز',
   aboutPageContent: 'أكاديمية قوانين النجاح مخصصة لتوفير تجارب تعليمية استثنائية تحضر الطلاب للنجاح في جميع جوانب الحياة. برامجنا الشاملة تجمع بين التميز الأكاديمي وتطوير المهارات العملية.',
   aboutMission: 'رسالتنا',
   aboutMissionDesc: 'تمكين الطلاب بالمعرفة والمهارات والثقة التي يحتاجونها لتحقيق إمكاناتهم الكاملة وتقديم مساهمات ذات معنى للمجتمع.',
@@ -192,6 +199,7 @@ export const arabicTranslations = {
   enroll: 'التسجيل',
   cancel: 'إلغاء',
   gradeLevel: 'السنة الدراسية',
+  showingResults: 'عرض {{filtered}} من {{total}} {{item}}',
   allGrades: 'جميع السنوات',
   starts: 'يبدأ',
   loginRequired: 'يرجى تسجيل الدخول للتسجيل في الدروس',
@@ -211,12 +219,57 @@ export const arabicTranslations = {
 
   // Dashboard Tabs
   overviewTab: 'نظرة عامة',
-  myCoursesTab: 'دروسي',
-  mySectionsTab: 'أقسامي',
+  myLearningTab: 'رحلتي التعليمية',
+  attendanceTab: 'الحضور',
   availableCoursesTab: 'الدروس المتاحة',
   paymentsTab: 'المدفوعات',
   contactTab: 'اتصل بنا',
   profileTab: 'الملف الشخصي',
+
+  // Unified Learning Dashboard
+  myLearningDashboard: 'لوحة رحلتي التعليمية',
+  learningDashboardDescription: 'تتبع دوراتك وجدولك الزمني وتقدمك في مكان واحد',
+  activeEnrollments: 'التسجيلات النشطة',
+  loadingLearningData: 'جاري تحميل بياناتك التعليمية...',
+  noLearningActivities: 'لا توجد أنشطة تعليمية بعد',
+  startLearningJourney: 'ابدأ رحلتك التعليمية من خلال التسجيل في الدورات المتاحة',
+  
+  // Learning Stats
+  activeSchedules: 'الجداول النشطة',
+  completedRegistrations: 'الدورات المعتمدة',
+  pendingRegistrations: 'بانتظار الموافقة',
+  monthlyProgress: 'التقدم الشهري',
+  dashboardSessions: 'الجلسات',
+  
+  // Schedule Section
+  currentSchedule: 'الجدول الحالي',
+  activeSections: 'الأقسام النشطة',
+  courseSection: 'الدورة والقسم',
+  scheduleTime: 'الجدول والوقت',
+  dashboardPaymentType: 'نوع الدفع',
+  progressLabel: 'التقدم',
+  statusLabel: 'الحالة',
+  monthlyPayment: 'شهري',
+  perSessionPayment: 'لكل جلسة',
+  activeStatus: 'نشط',
+  inactiveStatus: 'غير نشط',
+  
+  // Course Registrations Section
+  courseRegistrations: 'تسجيلات الدورات',
+  totalRegistrations: 'إجمالي التسجيلات',
+  dashboardStudent: 'الطالب',
+  currencyLabel: 'دج',
+  dashboardApproved: 'معتمد',
+  dashboardPending: 'معلق',
+  dashboardRejected: 'مرفوض',
+  seatReservedNotice: 'تم حجز مقعدك. يرجى زيارة الأكاديمية لإكمال التسجيل.',
+  
+  // Payment Summary for Learning Dashboard
+  learningPaymentSummary: 'ملخص المدفوعات',
+  totalOutstandingBalance: 'الرصيد المستحق',
+  totalPaidAmount: 'إجمالي المدفوع',
+  upcomingPaymentCount: 'المدفوعات المستقبلية',
+  viewPaymentDetails: 'عرض تفاصيل المدفوعات',
 
   // Dashboard Stats
   totalCoursesStat: 'إجمالي الدروس',
@@ -239,6 +292,13 @@ export const arabicTranslations = {
   totalPaidLabel: 'إجمالي المدفوعات:',
   outstandingBalanceLabel: 'الرصيد المستحق:',
   nextPayment: 'الدفعة التالية',
+  paymentBreakdown: 'تفصيل المدفوعات',
+  paymentType: 'نوع الدفع',
+  unpaidSessions: 'الجلسات غير المدفوعة',
+  sessionsThisMonth: 'جلسات هذا الشهر',
+  unpaidAmount: 'المبلغ غير المدفوع',
+  unpaidSessionDetails: 'تفاصيل الجلسات غير المدفوعة',
+  overdue: 'متأخر',
 
   // Recent Activity
   recentActivity: 'النشاط الأخير',
@@ -357,34 +417,78 @@ export const arabicTranslations = {
   verified: 'تم التحقق',
   activeCoursesLabel: 'الدروس النشطة:',
   totalRegistrationsLabel: 'إجمالي التسجيلات:',
+  
+  // Profile Picture
+  uploadPicture: 'رفع صورة',
+  removePicture: 'إزالة الصورة',
+  pictureUploaded: 'تم رفع صورة الملف الشخصي بنجاح',
+  pictureRemoved: 'تم إزالة صورة الملف الشخصي بنجاح',
+  uploadFailed: 'فشل في رفع صورة الملف الشخصي',
+  removeFailed: 'فشل في إزالة صورة الملف الشخصي',
+  invalidFileType: 'نوع ملف غير صحيح. يرجى اختيار ملفات PNG أو JPG أو JPEG أو GIF أو WebP أو BMP.',
+  fileTooLarge: 'الملف كبير جداً. الحد الأقصى للحجم هو 10 ميجابايت.',
 
-  // Student Profile Information
-  studentInfoLabel: 'الطالب',
-  dateOfBirth: 'تاريخ الميلاد',
-  mobileUsername: 'اسم المستخدم للجوال',
-  mobileAccess: 'الوصول للجوال',
-  enabled: 'مفعل',
-  disabled: 'معطل',
+  // Parent and Student Management
+  parentInformation: 'معلومات الوالد',
+  parentName: 'اسم الوالد',
+  parentEmail: 'بريد الوالد الإلكتروني',
+  parentPhone: 'هاتف الوالد',
+  myEnrollments: 'تسجيلاتي',
+  enrollmentDate: 'تاريخ التسجيل',
+  sessionsAttended: 'الحصص المحضورة',
+  myStudents: 'طلابي',
+  studentEmail: 'بريد الطالب الإلكتروني',
+  studentPhone: 'هاتف الطالب',
 
-  // Error Messages
-  failedToLoadData: 'فشل في تحميل بيانات لوحة التحكم. قد لا تعمل بعض الميزات بشكل صحيح.',
-  failedToSendMessage: 'فشل في إرسال الرسالة. يرجى المحاولة مرة أخرى.',
-  failedToUpdateProfile: 'فشل في تحديث الملف الشخصي. يرجى المحاولة مرة أخرى.',
-  failedToChangePassword: 'فشل في تغيير كلمة المرور. يرجى المحاولة مرة أخرى.',
-  networkError: 'خطأ في الشبكة. يرجى التحقق من اتصالك والمحاولة مرة أخرى.',
-
-  // Loading States
-  loading: 'جاري التحميل...',
+  // Account Security
+  accountSecurity: 'أمان الحساب',
+  changePassword: 'تغيير كلمة المرور',
+  currentPassword: 'كلمة المرور الحالية',
+  newPassword: 'كلمة المرور الجديدة',
+  confirmNewPassword: 'تأكيد كلمة المرور الجديدة',
+  updatePassword: 'تحديث كلمة المرور',
+  updateStudent: 'تحديث الطالب',
+  parentMobileApp: 'تطبيق الوالدين للجوال',
+  studentMobileApp: 'تطبيق الطالب للجوال',
+  phoneNumber: 'رقم الهاتف',
+  password: 'كلمة المرور',
+  status: 'الحالة',
+  enabled: 'مفعّل',
+  disabled: 'غير مفعّل',
+  mobileCredentials: 'بيانات اعتماد الجوال',
+  studentLoginCredentials: 'بيانات دخول الطالب',
+  
+  // Profile Edit Actions
+  edit: 'تعديل',
   saving: 'جاري الحفظ...',
-  updating: 'جاري التحديث...',
-  processing: 'جاري المعالجة...',
+  saveParentInfo: 'حفظ معلومات الوالد',
+  editPersonalInformation: 'تعديل المعلومات الشخصية',
+  editParentInformation: 'تعديل معلومات الوالد',
+  enterParentFullName: 'أدخل الاسم الكامل للوالد',
+  enterParentEmail: 'أدخل البريد الإلكتروني للوالد',
+  enterParentPhone: 'أدخل رقم هاتف الوالد',
+  parentFullName: 'الاسم الكامل للوالد',
+  parentNameLabel: 'اسم الوالد',
+  parentEmailLabel: 'بريد الوالد الإلكتروني',
+  parentPhoneLabel: 'هاتف الوالد',
+  noEmailProvided: 'لم يتم تقديم بريد إلكتروني',
+  account: 'حساب',
+  
+  // Password Messages
+  currentPasswordRequired: 'كلمة المرور الحالية مطلوبة',
 
   // Actions
-  save: 'حفظ',
-  confirm: 'تأكيد',
-  delete: 'حذف',
-  edit: 'تعديل',
-  view: 'عرض',
+  saveChanges: 'حفظ التغييرات',
+
+  // Success Messages
+  profileUpdated: 'تم تحديث الملف الشخصي بنجاح',
+  parentInfoUpdated: 'تم تحديث معلومات الوالد بنجاح',
+  studentUpdated: 'تم تحديث الطالب بنجاح',
+  passwordChanged: 'تم تغيير كلمة المرور بنجاح',
+
+  // Error Messages
+  failedToUpdateParentInfo: 'فشل في تحديث معلومات الوالد. يرجى المحاولة مرة أخرى.',
+  failedToUpdateStudent: 'فشل في تحديث الطالب. يرجى المحاولة مرة أخرى.',
   back: 'رجوع',
   next: 'التالي',
   previous: 'السابق',
@@ -616,6 +720,8 @@ export const arabicTranslations = {
   signIn: 'تسجيل الدخول',
   noAccount: 'ليس لديك حساب؟',
   createAccountLogin: 'إنشاء حساب',
+  or: 'أو',
+  firstTimeQRLogin: 'الأعضاء القدامى - تسجيل الدخول الأول بـ QR',
 
   // Authentication - Register Page
   joinAcademy: 'انضم إلى أكاديمية قوانين النجاح',
@@ -670,8 +776,177 @@ export const arabicTranslations = {
   passwordsDoNotMatch: 'كلمات المرور غير متطابقة',
   phoneFormatError: 'يجب أن يكون رقم الهاتف بالتنسيق: 05xxxxxxxx، 06xxxxxxxx، أو 07xxxxxxxx',
 
+  // First Visit Modal
+  firstVisitQuestion: 'هل أنت طالب موجود أم جديد في أكاديميتنا؟',
+  existingStudent: 'أنا طالب موجود',
+  newStudent: 'أنا طالب جديد',
+  chooseCorrectOption: 'يرجى اختيار الخيار الصحيح للمتابعة',
+
+  // Barcode Login Modal
+  barcodeLogin: 'تسجيل دخول بالباركود',
+  enterBarcode: 'يرجى إدخال باركود الطالب للمتابعة',
+  barcode: 'باركود الطالب',
+  validating: 'جاري التحقق...',
+  validateBarcode: 'التحقق من الباركود',
+  invalidBarcode: 'باركود غير صحيح. يرجى التحقق والمحاولة مرة أخرى.',
+  completeSetup: 'إكمال الإعداد',
+  setupInstructions: 'يرجى إكمال إعداد حسابك للمتابعة',
+  studentInfo: 'معلومات الطالب',
+  settingUp: 'جاري الإعداد...',
+  allFieldsRequired: 'جميع الحقول مطلوبة',
+  passwordMismatch: 'كلمات المرور غير متطابقة',
+  passwordTooShort: 'يجب أن تكون كلمة المرور 6 أحرف على الأقل',
+  setupFailed: 'فشل في الإعداد. يرجى المحاولة مرة أخرى.',
+
   // Missing Admin Translation Keys
   adminMobileCredentials: 'بيانات الجوال',
   adminStudent: 'طالب',
-  adminAllLevels: 'جميع المستويات'
+  adminAllLevels: 'جميع المستويات',
+
+  // Dashboard Login Information
+  parentLoginInfo: 'معلومات تسجيل دخول الوالد',
+  notSet: 'غير محدد',
+  noPasswordToCopy: 'لا يوجد كلمة مرور للنسخ',
+  passwordLabel: 'كلمة المرور:',
+  regenerate: 'إعادة إنشاء',
+  regenerateSuccess: 'تم إعادة إنشاء كلمة المرور بنجاح!',
+  regenerateFailed: 'فشل في إعادة إنشاء كلمة المرور',
+  parent: 'والد',
+  student: 'طالب',
+  credentialsRegenerated: 'تم إعادة إنشاء البيانات بنجاح',
+  regenerateCredentialsFailed: 'فشل في إعادة إنشاء البيانات',
+
+  // Alert Messages
+  registrationDetails: 'تفاصيل التسجيل',
+  contactMessageDetails: 'تفاصيل رسالة الاتصال',
+  alertStudent: 'الطالب',
+  alertParent: 'الوالد',
+  alertCourse: 'الدورة',
+  alertPrice: 'السعر',
+  alertSubmitted: 'تم الإرسال',
+  alertFrom: 'من',
+  alertSubject: 'الموضوع',
+  alertMessage: 'الرسالة',
+
+  // Dashboard Overview Tab
+  dashboardOverviewDescription: 'إليك نظرة عامة على لوحة التحكم في التعلم الخاصة بك',
+  lastLoginToday: 'آخر تسجيل دخول: اليوم',
+  accountActive: 'الحساب: نشط',
+  courseStatusOverview: 'نظرة عامة على حالة الدورة',
+  courseStatusDescription: 'تسجيلات الدورات الحالية وحالة الدورات',
+
+  // Dashboard Stats Cards
+  totalCourses: 'إجمالي الدروس',
+  activeCourses: 'نشط',
+  approvedCourses: 'الدروس المعتمدة',
+  readyToStart: 'جاهز للبدء',
+  pendingApprovals: 'الموافقات المعلقة',
+  awaitingConfirmation: 'في انتظار التأكيد',
+
+  // Contact Support
+  contactSupport: 'اتصل بالدعم',
+  getHelpSupport: 'احصل على المساعدة والدعم',
+  needHelp: 'تحتاج مساعدة؟',
+  contactOurSupportTeam: 'اتصل بفريق الدعم لدينا',
+
+  // Dashboard Schedule Tab
+  mySchedule: 'جدولي الزمني',
+  scheduleDescription: 'تتبع الدورات المسجلة وجدول الدفع',
+  loadingSchedule: 'جاري تحميل الجدول...',
+  noScheduleAvailable: 'لا يوجد جدول متاح',
+  viewSchedule: 'عرض الجدول',
+  checkClassTimings: 'تحقق من مواعيد الصفوف',
+
+  // Schedule Table Headers
+  sectionHeader: 'القسم',
+  scheduleHeader: 'الجدول الزمني',
+  paymentTypeHeader: 'نوع الدفع',
+  sessionsThisMonthHeader: 'الجلسات هذا الشهر',
+
+  // Payment Information
+  paymentTypeLabel: 'نوع الدفع',
+  owedLabel: 'مستحق',
+
+  // Dashboard Quick Actions
+  outstandingBalance: 'الرصيد المستحق',
+  dueThisMonth: 'مستحق هذا الشهر',
+  browseCoursesAction: 'تصفح الدروس',
+  findNewCourses: 'البحث عن دروس جديدة',
+  makePayment: 'إجراء الدفع',
+  payOutstandingFees: 'دفع الرسوم المستحقة',
+
+  // Attendance Log - Dashboard Tab
+  attendanceLogTitle: 'سجل الحضور',
+  attendanceLogSubtitle: 'تتبع حضورك اليومي وحالة المدفوعات',
+  totalSessions: 'إجمالي الجلسات',
+  presentSessions: 'الجلسات الحاضرة',
+  absentSessions: 'الجلسات الغائبة',
+  unpaidSessionsCount: 'الجلسات غير المدفوعة',
+  attendancePercentage: 'معدل الحضور',
+  dailyAttendanceRecords: 'سجلات الحضور اليومية',
+  present: 'حاضر',
+  absent: 'غائب',
+  unpaid: 'غير مدفوع',
+  pending: 'قيد الانتظار',
+  attendanceDate: 'التاريخ',
+  courseNameAttendance: 'الدورة',
+  sessionDuration: 'المدة',
+  sessionPrice: 'سعر الجلسة',
+  paymentStatusAttendance: 'حالة الدفع',
+  paid: 'مدفوع',
+  paymentDueAttendance: 'دفعة مستحقة',
+  viewAttendanceLog: 'عرض سجل الحضور',
+  checkDailyAttendance: 'تحقق من سجل الحضور اليومي',
+  noAttendanceRecords: 'لا توجد سجلات حضور',
+  attendanceHistoryWillAppear: 'سيظهر تاريخ حضورك هنا بمجرد أن تبدأ في حضور الصفوف.',
+  attendanceSummary: 'ملخص الحضور',
+  courseType: 'نوع الدورة',
+  notSpecified: 'غير محدد',
+  notPaid: 'غير مدفوع',
+  session: 'جلسة',
+  paymentRequired: 'الدفع مطلوب',
+  paymentRequiredMessage: 'الدفع مطلوب - هذه الجلسة تساهم في ديونك',
+  attendanceRateLabel: 'معدل الحضور',
+  paymentRateLabel: 'معدل الدفع',
+  totalSessionsLabel: 'إجمالي الجلسات',
+  outstandingDebtLabel: 'الديون المستحقة',
+  course: 'الدورة',
+  attendanceRate: 'معدل الحضور',
+  totalAmount: 'المبلغ الإجمالي',
+  paidAmount: 'المبلغ المدفوع',
+  outstandingAmount: 'المبلغ المستحق',
+
+  // Payment Status Section
+  paymentStatusSection: 'حالة الدفع',
+  outstandingBalancesDesc: 'الأرصدة المستحقة وتواريخ الاستحقاق',
+  allClear: 'كل شيء واضح',
+  totalOutstanding: 'إجمالي المستحق',
+  overduePayments: 'متأخر',
+  allClearCourses: 'كل شيء واضح',
+  viewPaymentDetail: 'عرض تفاصيل الدفع',
+  paymentOverdue: 'الدفع متأخر',
+  sessionsLabel: 'الجلسات',
+  thisMonth: 'هذا الشهر',
+
+  // Profile Completion Modal
+  profile: {
+    complete_profile: 'أكمل ملفك الشخصي',
+    complete_profile_subtitle: 'يرجى إكمال جميع الحقول المطلوبة للوصول إلى لوحة التحكم.',
+    your_information: 'معلوماتك الشخصية',
+    full_name: 'الاسم الكامل',
+    email: 'البريد الإلكتروني (اختياري)',
+    phone: 'رقم الهاتف',
+    gender: 'الجنس',
+    date_of_birth: 'تاريخ الميلاد',
+    parent_information: 'معلومات ولي الأمر',
+    parent_name: 'اسم ولي الأمر',
+    parent_phone: 'هاتف ولي الأمر',
+    parent_email: 'بريد ولي الأمر (اختياري)',
+    student_information: 'معلومات شخصية',
+    student_name: 'اسم الطالب',
+    save_and_continue: 'حفظ والمتابعة',
+    saving: 'جاري الحفظ',
+    incomplete_fields: 'يرجى ملء جميع الحقول المطلوبة',
+    update_failed: 'فشل تحديث الملف الشخصي. يرجى المحاولة مرة أخرى.'
+  }
 };

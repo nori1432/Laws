@@ -12,7 +12,9 @@ const Register: React.FC = () => {
     confirmPassword: '',
     full_name: '',
     phone: '',
+    parent_phone: '',
     student_name: '',
+    gender: '',
     birthDay: '',
     birthMonth: '',
     birthYear: ''
@@ -21,7 +23,6 @@ const Register: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const { register } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -45,8 +46,11 @@ const Register: React.FC = () => {
     else if (!/^[a-zA-Z\s]+$/.test(formData.full_name.trim())) newErrors.full_name = t('nameMustContainLetters');
     
     if (!formData.phone) newErrors.phone = t('phoneRequired');
+    if (!formData.parent_phone) newErrors.parent_phone = 'Parent phone is required';
     if (!formData.student_name) newErrors.student_name = t('studentNameRequired');
     else if (!/^[a-zA-Z\s]+$/.test(formData.student_name.trim())) newErrors.student_name = t('nameMustContainLetters');
+    
+    if (!formData.gender) newErrors.gender = 'Gender is required';
     
     if (!formData.birthDay || !formData.birthMonth || !formData.birthYear) {
       newErrors.date_of_birth = t('dateOfBirthRequired');
@@ -76,11 +80,15 @@ const Register: React.FC = () => {
       newErrors.phone = t('phoneFormatError');
     }
 
+    if (formData.parent_phone && !validatePhone(formData.parent_phone)) {
+      newErrors.parent_phone = 'Invalid parent phone format';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
@@ -113,7 +121,9 @@ const Register: React.FC = () => {
       };
       const { confirmPassword, birthDay, birthMonth, birthYear, ...finalData } = registerData;
       await register(finalData);
-      setShowSuccessModal(true);
+      
+      toast.success('Registration successful! Welcome to Laws of Success Academy.');
+      navigate('/login'); // Redirect to login page after successful registration
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -292,6 +302,31 @@ const Register: React.FC = () => {
                 {errors.phone && <p className="mt-1 text-sm text-destructive">{errors.phone}</p>}
               </div>
 
+              {/* Parent Phone */}
+              <div>
+                <label htmlFor="parent_phone" className="block text-sm font-medium text-foreground mb-2">
+                  Parent Phone Number
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Phone className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <input
+                    id="parent_phone"
+                    name="parent_phone"
+                    type="tel"
+                    required
+                    value={formData.parent_phone}
+                    onChange={handleChange}
+                    className={`block w-full pl-12 pr-4 py-4 bg-input border rounded-xl text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 text-sm ${
+                      errors.parent_phone ? 'border-destructive' : 'border-border'
+                    }`}
+                    placeholder="Parent phone number"
+                  />
+                </div>
+                {errors.parent_phone && <p className="mt-1 text-sm text-destructive">{errors.parent_phone}</p>}
+              </div>
+
               {/* Student Name */}
               <div>
                 <label htmlFor="student_name" className="block text-sm font-medium text-foreground mb-2">
@@ -315,6 +350,30 @@ const Register: React.FC = () => {
                   />
                 </div>
                 {errors.student_name && <p className="mt-1 text-sm text-destructive">{errors.student_name}</p>}
+              </div>
+
+              {/* Gender */}
+              <div>
+                <label htmlFor="gender" className="block text-sm font-medium text-foreground mb-2">
+                  Student Gender
+                </label>
+                <div className="relative">
+                  <select
+                    id="gender"
+                    name="gender"
+                    required
+                    value={formData.gender}
+                    onChange={handleChange}
+                    className={`block w-full pl-4 pr-4 py-4 bg-input border rounded-xl text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 text-sm ${
+                      errors.gender ? 'border-destructive' : 'border-border'
+                    }`}
+                  >
+                    <option value="">Select gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
+                {errors.gender && <p className="mt-1 text-sm text-destructive">{errors.gender}</p>}
               </div>
 
               {/* Date of Birth */}
@@ -421,39 +480,6 @@ const Register: React.FC = () => {
             </div>
           </form>
         </div>
-
-        {/* Success Modal */}
-        {showSuccessModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-card border border-border rounded-2xl shadow-luxury p-8 max-w-md w-full mx-4">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold text-foreground mb-2">{t('registrationSuccessfulModal')}</h3>
-                <p className="text-muted-foreground mb-6">
-                  {t('verificationEmailSent')}
-                </p>
-                <div className="space-y-3">
-                  <button
-                    onClick={() => navigate('/verify-email')}
-                    className="w-full bg-gradient-gold text-primary-foreground py-3 px-4 rounded-xl font-medium shadow-luxury hover:shadow-dark transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    {t('goToEmailVerification')}
-                  </button>
-                  <button
-                    onClick={() => setShowSuccessModal(false)}
-                    className="w-full bg-muted text-muted-foreground py-3 px-4 rounded-xl font-medium hover:bg-muted/80 transition-all duration-200"
-                  >
-                    {t('closeModal')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Decorative Elements */}
         <div className="absolute top-20 left-10 w-32 h-32 bg-primary/5 rounded-full blur-3xl"></div>

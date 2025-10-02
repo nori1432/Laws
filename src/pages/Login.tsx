@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Eye, EyeOff, Mail, Lock, QrCode } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
+import MissingInfoModal from '../components/MissingInfoModal';
+import BarcodeLoginModal from '../components/BarcodeLoginModal';
 
 const Login: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -13,9 +15,46 @@ const Login: React.FC = () => {
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [showMissingInfoModal, setShowMissingInfoModal] = useState(false);
+  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [missingData, setMissingData] = useState({
+    needsParent: false,
+    needsPhone: false,
+    needsDateOfBirth: false,
+    needsParentPhone: false
+  });
+  const { login, user } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Get the intended destination from location state
+  const from = location.state?.from?.pathname || '/dashboard';
+
+  const checkMissingData = async () => {
+    try {
+      const response = await fetch('/api/auth/profile-status');
+      const data = await response.json();
+      
+      if (response.ok && data.missing_data) {
+        const missing = data.missing_data;
+        if (missing.needs_parent || missing.needs_phone || missing.needs_date_of_birth || missing.needs_parent_phone) {
+          setMissingData({
+            needsParent: missing.needs_parent,
+            needsPhone: missing.needs_phone,
+            needsDateOfBirth: missing.needs_date_of_birth,
+            needsParentPhone: missing.needs_parent_phone
+          });
+          setShowMissingInfoModal(true);
+          return true; // Has missing data
+        }
+      }
+      return false; // No missing data
+    } catch (error) {
+      console.error('Error checking profile status:', error);
+      return false;
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -26,6 +65,10 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('📝 Form submission started');
+    console.log('📊 Form data:', { ...formData, password: '[REDACTED]' });
+    console.log('🔧 Login method:', loginMethod);
+    
     setIsLoading(true);
 
     try {
@@ -34,13 +77,29 @@ const Login: React.FC = () => {
         ? { email: formData.identifier, password: formData.password }
         : { phone: formData.identifier, password: formData.password };
       
-      await login(loginData);
+      console.log('🚀 Calling login function with:', { ...loginData, password: '[REDACTED]' });
+      
+      const userData = await login(loginData);
+      console.log('✅ Login successful, user data:', userData);
+      
       toast.success('Login successful!');
-      navigate('/dashboard');
+      
+      // Check for missing profile data
+      const hasMissingData = await checkMissingData();
+      
+      if (!hasMissingData) {
+        // No missing data, redirect to intended destination or default based on role
+        const redirectTo = userData?.role === 'admin' ? '/admin' : from;
+        console.log('👤 Regular user, redirecting to:', redirectTo);
+        navigate(redirectTo, { replace: true });
+      }
+      // If has missing data, modal will be shown and redirect happens after completion
     } catch (error: any) {
+      console.error('💥 Login error caught:', error);
       toast.error(error.message);
     } finally {
       setIsLoading(false);
+      console.log('🏁 Login process finished');
     }
   };
 
@@ -51,13 +110,11 @@ const Login: React.FC = () => {
         <div className="bg-card border border-border rounded-2xl shadow-luxury p-6 md:p-8 backdrop-blur-sm relative z-10">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-gradient-gold rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-luxury">
-              <img
-                src="/logo.png"
-                alt="Laws of Success Academy"
-                className="w-12 h-12 rounded-lg"
-              />
-            </div>
+            <img
+              src="/logo.png"
+              alt="Laws of Success Academy"
+              className="w-20 h-20 mx-auto mb-6"
+            />
             <h2 className="text-3xl font-bold bg-gradient-gold bg-clip-text text-transparent mb-3">
               {t('welcomeBackLogin')}
             </h2>
@@ -172,6 +229,31 @@ const Login: React.FC = () => {
             </button>
           </form>
 
+          {/* QR Code Login Option */}
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="bg-card px-4 text-muted-foreground">
+                  {t('or')}
+                </span>
+              </div>
+            </div>
+            
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setShowBarcodeModal(true)}
+                className="w-full bg-muted border border-border text-foreground py-3 px-4 rounded-xl font-medium text-sm shadow-sm hover:bg-accent hover:text-accent-foreground transition-all duration-300 flex items-center justify-center space-x-2"
+              >
+                <QrCode className="h-5 w-5" />
+                <span>{t('firstTimeQRLogin')}</span>
+              </button>
+            </div>
+          </div>
+
           {/* Footer */}
           <div className="mt-8 text-center">
             <p className="text-muted-foreground text-sm">
@@ -190,6 +272,41 @@ const Login: React.FC = () => {
         <div className="absolute top-20 left-10 w-32 h-32 bg-primary/5 rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 right-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl"></div>
       </div>
+
+      {/* Missing Info Modal */}
+      <MissingInfoModal
+        isOpen={showMissingInfoModal}
+        onClose={() => setShowMissingInfoModal(false)}
+        missingData={missingData}
+        onComplete={() => {
+          // Redirect to intended destination after completing profile
+          const userData = user; // Get current user from auth context
+          const redirectTo = userData?.role === 'admin' ? '/admin' : from;
+          console.log('📝 Profile completed, redirecting to:', redirectTo);
+          navigate(redirectTo, { replace: true });
+        }}
+      />
+
+      {/* Barcode Login Modal */}
+      <BarcodeLoginModal
+        isOpen={showBarcodeModal}
+        onClose={() => setShowBarcodeModal(false)}
+        onSuccess={async () => {
+          setShowBarcodeModal(false);
+          
+          // Check for missing profile data after barcode login
+          const hasMissingData = await checkMissingData();
+          
+          if (!hasMissingData) {
+            // No missing data, redirect to intended destination
+            const userData = user; // Get current user from auth context
+            const redirectTo = userData?.role === 'admin' ? '/admin' : from;
+            console.log('📱 Barcode login successful, redirecting to:', redirectTo);
+            navigate(redirectTo, { replace: true });
+          }
+          // If has missing data, modal will be shown and redirect happens after completion
+        }}
+      />
     </div>
   );
 };

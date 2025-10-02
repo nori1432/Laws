@@ -69,7 +69,7 @@ const Contact: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground">Email</h3>
-                    <p className="text-muted-foreground">info@lawsofsuccess.com</p>
+                    <p className="text-muted-foreground">successroadacademy@outlook.fr</p>
                   </div>
                 </div>
 
@@ -79,7 +79,7 @@ const Contact: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground">Phone</h3>
-                    <p className="text-muted-foreground">+1 (555) 123-4567</p>
+                    <p className="text-muted-foreground">0791 19 74 30 / +213 791 19 74 30</p>
                   </div>
                 </div>
 
@@ -89,7 +89,7 @@ const Contact: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground">Address</h3>
-                    <p className="text-muted-foreground">123 Education Street<br />Learning City, LC 12345</p>
+                    <p className="text-muted-foreground">CENTRE COMMERCIAL SIRABAH (قيصارية سي رابح)<br />Centre ville nedroma</p>
                   </div>
                 </div>
               </div>

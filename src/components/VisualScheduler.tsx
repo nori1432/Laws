@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Clock, Users, Calendar, GripVertical } from 'lucide-react';
+import { useTranslatedCategory } from '../utils/categoryUtils';
 
 interface CourseSection {
   id: number;
@@ -14,6 +15,7 @@ interface CourseSection {
   is_active: boolean;
   created_at: string;
   course_name?: string;
+  course_category?: string;
 }
 
 interface TimeSlot {
@@ -49,6 +51,8 @@ const VisualScheduler: React.FC<VisualSchedulerProps> = ({
   const [scheduledSections, setScheduledSections] = useState<ScheduledSection[]>([]);
   const [draggedSection, setDraggedSection] = useState<CourseSection | null>(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
+
+  const { getCategoryColors } = useTranslatedCategory();
 
   useEffect(() => {
     // Validate sections data
@@ -217,20 +221,20 @@ const VisualScheduler: React.FC<VisualSchedulerProps> = ({
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                className={`p-2 mb-1 rounded-md bg-gradient-gold text-secondary text-xs cursor-move transition-transform ${
+                                className={`p-2 mb-1 rounded-md text-white text-xs cursor-move transition-transform ${getCategoryColors(section.course_category || '').bg} ${
                                   snapshot.isDragging ? 'rotate-3 shadow-lg' : ''
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
                                   <span className="font-medium truncate">
-                                    {section.course_name || `Section ${section.section_name}`}
+                                    {section.course_name} - {section.section_name}
                                   </span>
                                   <GripVertical className="w-3 h-3 flex-shrink-0 ml-1" />
                                 </div>
                                 <div className="flex items-center justify-between mt-1">
                                   <div className="flex items-center">
                                     <Users className="w-3 h-3 mr-1" />
-                                    <span>{section.current_students}/{section.max_students}</span>
+                                    <span>{section.current_students} students</span>
                                   </div>
                                   <div className="flex items-center">
                                     <Clock className="w-3 h-3 mr-1" />

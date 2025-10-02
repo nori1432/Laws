@@ -3,10 +3,37 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, User, LogOut, Languages } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import ProfilePictureUploader from './ProfilePictureUploader';
 
 const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, logout, isAuthenticated } = useAuth();
+  
+  // Add error handling for auth context
+  let authState;
+  try {
+    authState = useAuth();
+  } catch (error) {
+    console.error('❌ Navbar: useAuth error:', error);
+    // Return a minimal navbar if auth context is not available
+    return (
+      <nav className="bg-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <Link to="/" className="text-xl font-bold text-primary">
+                Laws of Success Academy
+              </Link>
+            </div>
+            <div className="text-red-500 text-sm flex items-center">
+              Loading...
+            </div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+  
+  const { user, logout, isAuthenticated } = authState;
   const { language, setLanguage, isRTL, t } = useLanguage();
   const location = useLocation();
 
@@ -20,7 +47,6 @@ const Navbar: React.FC = () => {
     { name: t('dashboard'), href: '/dashboard' },
     { name: t('courses'), href: '/courses' },
     { name: t('about'), href: '/about' },
-    { name: t('gallery'), href: '/gallery' },
     { name: t('contact'), href: '/contact' },
   ] : [
     { name: t('home'), href: '/' },
@@ -28,7 +54,6 @@ const Navbar: React.FC = () => {
     { name: t('littleStars'), href: '/little-stars' },
     { name: t('about'), href: '/about' },
     { name: t('courses'), href: '/courses' },
-    { name: t('gallery'), href: '/gallery' },
     { name: t('contact'), href: '/contact' },
   ];
 
@@ -43,7 +68,7 @@ const Navbar: React.FC = () => {
     }
 
     // For non-authenticated users, allow access to public pages
-    const publicPages = ['/', '/home', '/little-stars', '/about', '/courses', '/gallery', '/contact'];
+    const publicPages = ['/', '/home', '/little-stars', '/about', '/courses', '/contact'];
     if (!publicPages.includes(href)) {
       e.preventDefault();
       // Only redirect to login for truly private pages
@@ -80,7 +105,7 @@ const Navbar: React.FC = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center justify-center flex-1 mx-8">
             {navigation.length > 0 && navigation.map((item) => (
-              !isAuthenticated && !['/', '/home', '/little-stars', '/about', '/courses', '/gallery', '/contact'].includes(item.href) ? (
+              !isAuthenticated && !['/', '/home', '/little-stars', '/about', '/courses', '/contact'].includes(item.href) ? (
                 <button
                   key={item.name}
                   onClick={(e) => handleNavClick(item.href, e)}
@@ -125,7 +150,12 @@ const Navbar: React.FC = () => {
             {isAuthenticated ? (
               <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-4' : 'space-x-4'}`}>
                 <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-2' : 'space-x-2'}`}>
-                  <User className="w-4 h-4 text-primary" />
+                  <ProfilePictureUploader
+                    currentImageUrl={user?.profile_picture_url}
+                    size="sm"
+                    editable={false}
+                    className="flex-shrink-0"
+                  />
                   <span className={`text-sm font-medium text-foreground ${isRTL ? 'font-arabic' : 'font-english'}`}>
                     {user?.role === 'client' ? (user?.students?.[0]?.name || user?.full_name) : user?.full_name}
                   </span>
@@ -177,7 +207,7 @@ const Navbar: React.FC = () => {
           <div className="md:hidden">
             <div className={`px-4 pt-2 pb-3 space-y-1 bg-card/95 backdrop-blur-sm border-t border-primary/20 shadow-luxury ${isRTL ? 'text-right font-arabic' : 'text-left font-english'}`} dir={isRTL ? 'rtl' : 'ltr'}>
               {navigation.length > 0 && navigation.map((item) => (
-                !isAuthenticated && !['/', '/home', '/little-stars', '/about', '/courses', '/gallery', '/contact'].includes(item.href) ? (
+                !isAuthenticated && !['/', '/home', '/little-stars', '/about', '/courses', '/contact'].includes(item.href) ? (
                   <button
                     key={item.name}
                     onClick={(e) => {

@@ -467,4 +467,137 @@ body[dir="rtl"] {
 [dir="rtl"] .input-label {
   left: auto;
   right: 20px;
+}
+
+/* Print Styles */
+@media print {
+  /* Reset page margins and styling */
+  @page {
+    margin: 20mm;
+    size: A4;
+  }
+  
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt !important;
+    line-height: 1.4 !important;
+  }
+  
+  /* Hide non-printable elements */
+  .no-print,
+  .print\\:hidden,
+  nav,
+  header,
+  footer,
+  button:not(.print\\:block),
+  .bg-black,
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-luxury {
+    display: none !important;
+  }
+  
+  /* Ensure printable elements are visible */
+  .print\\:block {
+    display: block !important;
+  }
+  
+  .print\\:inline {
+    display: inline !important;
+  }
+  
+  .print\\:inline-block {
+    display: inline-block !important;
+  }
+  
+  /* Remove interactive styling for print */
+  .hover\\:shadow-lg,
+  .hover\\:shadow-xl,
+  .transition-all,
+  .transition-colors,
+  .transition-opacity {
+    transition: none !important;
+  }
+  
+  /* Print-specific styling */
+  .print\\:bg-white {
+    background: white !important;
+  }
+  
+  .print\\:text-black {
+    color: black !important;
+  }
+  
+  .print\\:border-gray-400 {
+    border-color: #9CA3AF !important;
+  }
+  
+  /* Page breaks */
+  .print\\:page-break-before {
+    page-break-before: always !important;
+  }
+  
+  .print\\:page-break-after {
+    page-break-after: always !important;
+  }
+  
+  .print\\:page-break-inside-avoid {
+    page-break-inside: avoid !important;
+  }
+  
+  /* Table printing */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+  
+  table th,
+  table td {
+    border: 1px solid #9CA3AF !important;
+    padding: 8px !important;
+    text-align: left !important;
+  }
+  
+  table th {
+    background-color: #F3F4F6 !important;
+    font-weight: bold !important;
+  }
+  
+  /* Card printing */
+  .printable-card {
+    page-break-inside: avoid !important;
+    border: 2px solid #374151 !important;
+    padding: 20px !important;
+    margin-bottom: 20px !important;
+    background: white !important;
+  }
+  
+  /* Student list table for print */
+  .student-list-print {
+    font-size: 10pt !important;
+  }
+  
+  .student-list-print th,
+  .student-list-print td {
+    padding: 6px !important;
+    font-size: 9pt !important;
+  }
+  
+  /* QR Code printing */
+  .qr-code-print {
+    width: 80px !important;
+    height: 80px !important;
+  }
+  
+  /* Logo and branding */
+  .logo-print {
+    max-width: 60px !important;
+    max-height: 60px !important;
+  }
 } 

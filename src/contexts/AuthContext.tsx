@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import axios from 'axios';
-import { API_BASE_URL, API_ENDPOINTS } from '../config/api';
+import { API_BASE_URL, API_ENDPOINTS, api } from '../config/api';
 
 interface User {
   id: number;
@@ -9,13 +8,19 @@ interface User {
   phone: string;
   role: 'client' | 'admin';
   email_verified: boolean;
+  profile_picture_url?: string | null;
   mobile_username?: string;
+  mobile_password?: string;
   mobile_app_enabled: boolean;
+  profile_incomplete?: boolean;
+  gender?: string;
   students?: Array<{
     id: number;
     name: string;
     date_of_birth?: string;
+    phone?: string;
     mobile_username?: string;
+    mobile_password?: string;
     mobile_app_enabled?: boolean;
   }>;
   parent_info?: {
@@ -27,12 +32,14 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (credentials: { email?: string; phone?: string; password: string }) => Promise<void>;
+  login: (credentials: { email?: string; phone?: string; password: string }) => Promise<User>;
   logout: () => void;
   register: (userData: RegisterData) => Promise<void>;
   verifyEmail: (token: string) => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
   isLoading: boolean;
   isAuthenticated: boolean;
+  profileIncomplete: boolean;
 }
 
 interface RegisterData {
@@ -59,37 +66,65 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  console.log('🏗️ AuthProvider: Mounting...');
+  
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Configure axios defaults
-  axios.defaults.baseURL = API_BASE_URL;
+  // Configure API defaults
+  console.log('🔗 API Base URL:', API_BASE_URL);
 
-  // Set up axios interceptor for JWT
-  useEffect(() => {
-    const token = localStorage.getItem('token');
+  // Set up authentication header management
+  const setAuthToken = (token: string | null) => {
     if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      localStorage.setItem('access_token', token);
+    } else {
+      localStorage.removeItem('access_token');
     }
+  };
 
-    // Check if user is authenticated on app start
-    checkAuthStatus();
+  // Check if user is authenticated on app start
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      console.log('🔑 Found existing token, verifying...');
+      checkAuthStatus();
+    } else {
+      console.log('❌ No token found');
+      setIsLoading(false);
+    }
   }, []);
 
   const checkAuthStatus = async () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token');
     if (!token) {
       setIsLoading(false);
       return;
     }
 
     try {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      const response = await axios.get(API_ENDPOINTS.ME);
-      setUser(response.data.user);
+      console.log('🔍 Verifying token...');
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.ME}`, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setUser(data.user);
+      console.log('✅ Token verified, user loaded');
     } catch (error) {
-      localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization'];
+      console.log('❌ Token verification failed:', error);
+      localStorage.removeItem('access_token');
     } finally {
       setIsLoading(false);
     }
@@ -97,39 +132,108 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (credentials: { email?: string; phone?: string; password: string }) => {
     try {
-      const response = await axios.post(API_ENDPOINTS.LOGIN, credentials);
-      const { access_token, user: userData } = response.data;
+      console.log('🔐 Attempting login with:', { ...credentials, password: '[REDACTED]' });
+      console.log('🌐 API Base URL:', API_BASE_URL);
+      console.log('🎯 Login endpoint:', API_ENDPOINTS.LOGIN);
+      
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.LOGIN}`, {
+        method: 'POST',
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(credentials)
+      });
 
-      localStorage.setItem('token', access_token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Login failed with status:', response.status, errorData);
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Login response:', data);
+      
+      const { access_token, user: userData } = data;
+
+      setAuthToken(access_token);
       setUser(userData);
+      
+      return userData; // Return user data for immediate use
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Login failed');
+      console.error('❌ Login error:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error name:', error.name);
+      console.error('❌ Error stack:', error.stack);
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error - cannot connect to server. Please check if the server is running.');
+      } else {
+        throw new Error(error.message || 'Login failed');
+      }
     }
   };
 
   const register = async (userData: RegisterData) => {
     try {
-      const response = await axios.post(API_ENDPOINTS.REGISTER, userData);
-      return response.data;
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.REGISTER}`, {
+        method: 'POST',
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(userData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Registration failed');
+      throw new Error(error.message || 'Registration failed');
     }
   };
 
   const verifyEmail = async (token: string) => {
     try {
-      const response = await axios.post(API_ENDPOINTS.VERIFY_EMAIL, { token });
-      return response.data;
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.VERIFY_EMAIL}`, {
+        method: 'POST',
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ token })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Email verification failed');
+      throw new Error(error.message || 'Email verification failed');
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
+    setAuthToken(null);
     setUser(null);
+  };
+
+  const updateUser = (updates: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...updates } : null);
   };
 
   const value: AuthContextType = {
@@ -138,9 +242,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     register,
     verifyEmail,
+    updateUser,
     isLoading,
     isAuthenticated: !!user,
+    profileIncomplete: user?.profile_incomplete || false,
   };
+
+  console.log('📦 AuthProvider: Providing value:', { 
+    hasUser: !!user, 
+    isLoading, 
+    isAuthenticated: !!user,
+    userId: user?.id
+  });
 
   return (
     <AuthContext.Provider value={value}>

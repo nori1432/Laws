@@ -10,12 +10,15 @@ const CATEGORY_TRANSLATION_MAP: { [key: string]: string } = {
   'ابتدائي': 'primaryLevel',
   'متوسط': 'middleLevel',
   'ثانوي': 'highLevel',
+  'باكالوريا': 'bachelorLevel',
 
   // English categories
   'preschool': 'preschoolLevel',
   'primary': 'primaryLevel',
   'middle': 'middleLevel',
   'high': 'highLevel',
+  'bachelor': 'bachelorLevel',
+  'bachelore': 'bachelorLevel',
   'preschool and preparatory': 'preschoolLevel',
   'elementary': 'primaryLevel',
   'secondary': 'middleLevel',
@@ -26,6 +29,8 @@ const CATEGORY_TRANSLATION_MAP: { [key: string]: string } = {
   'Primary': 'primaryLevel',
   'Middle': 'middleLevel',
   'High': 'highLevel',
+  'Bachelor': 'bachelorLevel',
+  'Bachelore': 'bachelorLevel',
   'Middle School': 'middleLevel',
   'High School': 'highLevel',
 };
@@ -33,24 +38,29 @@ const CATEGORY_TRANSLATION_MAP: { [key: string]: string } = {
 // Category colors for visual distinction
 export const CATEGORY_COLORS: { [key: string]: { bg: string; text: string; border: string } } = {
   preschoolLevel: {
-    bg: 'bg-pink-100',
-    text: 'text-pink-800',
-    border: 'border-pink-200'
+    bg: 'bg-pink-600',
+    text: 'text-white',
+    border: 'border-pink-600'
   },
   primaryLevel: {
-    bg: 'bg-blue-100',
-    text: 'text-blue-800',
-    border: 'border-blue-200'
+    bg: 'bg-blue-600',
+    text: 'text-white',
+    border: 'border-blue-600'
   },
   middleLevel: {
-    bg: 'bg-green-100',
-    text: 'text-green-800',
-    border: 'border-green-200'
+    bg: 'bg-green-600',
+    text: 'text-white',
+    border: 'border-green-600'
   },
   highLevel: {
-    bg: 'bg-purple-100',
-    text: 'text-purple-800',
-    border: 'border-purple-200'
+    bg: 'bg-purple-600',
+    text: 'text-white',
+    border: 'border-purple-600'
+  },
+  bachelorLevel: {
+    bg: 'bg-orange-600',
+    text: 'text-white',
+    border: 'border-orange-600'
   }
 };
 

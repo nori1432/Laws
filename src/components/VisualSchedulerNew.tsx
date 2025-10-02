@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Clock, Users, Calendar, GripVertical, Plus, X, Edit3 } from 'lucide-react';
+import { useTranslatedCategory } from '../utils/categoryUtils';
 
 interface CourseSection {
   id: number;
@@ -14,6 +15,7 @@ interface CourseSection {
   is_active: boolean;
   created_at: string;
   course_name?: string;
+  course_category?: string;
 }
 
 interface TimeSlot {
@@ -49,6 +51,8 @@ const VisualScheduler: React.FC<VisualSchedulerProps> = ({
   const [unscheduledSections, setUnscheduledSections] = useState<CourseSection[]>([]);
   const [selectedDuration, setSelectedDuration] = useState<{[sectionId: number]: number}>({});
   const [editingSection, setEditingSection] = useState<CourseSection | null>(null);
+
+  const { getCategoryColors } = useTranslatedCategory();
 
   useEffect(() => {
     // Initialize scheduled and unscheduled sections
@@ -278,20 +282,20 @@ const VisualScheduler: React.FC<VisualSchedulerProps> = ({
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
                                     {...provided.dragHandleProps}
-                                    className={`p-2 mb-1 rounded bg-gradient-gold text-secondary text-xs cursor-move transition-all ${
+                                    className={`p-2 mb-1 rounded text-white text-xs cursor-move transition-all ${getCategoryColors(section.course_category || '').bg} ${
                                       snapshot.isDragging ? 'rotate-2 shadow-lg' : ''
                                     }`}
                                   >
                                     <div className="flex items-center justify-between">
                                       <span className="font-medium truncate flex-1">
-                                        {section.course_name || section.section_name}
+                                        {section.course_name} - {section.section_name}
                                       </span>
                                       <GripVertical className="w-3 h-3 flex-shrink-0 ml-1" />
                                     </div>
                                     <div className="flex items-center justify-between mt-1">
                                       <div className="flex items-center">
                                         <Users className="w-3 h-3 mr-1" />
-                                        <span>{section.current_students}/{section.max_students}</span>
+                                        <span>{section.current_students} students</span>
                                       </div>
                                       <div className="flex items-center">
                                         <Clock className="w-3 h-3 mr-1" />
@@ -382,14 +386,14 @@ const VisualScheduler: React.FC<VisualSchedulerProps> = ({
                         >
                           <div className="flex items-center justify-between mb-2">
                             <h5 className="font-medium text-foreground text-sm truncate">
-                              {section.course_name || section.section_name}
+                              {section.course_name} - {section.section_name}
                             </h5>
                             <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                           </div>
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <div className="flex items-center">
                               <Users className="w-3 h-3 mr-1" />
-                              <span>{section.current_students}/{section.max_students}</span>
+                              <span>{section.current_students} students</span>
                             </div>
                             <div className="flex items-center">
                               <Clock className="w-3 h-3 mr-1" />

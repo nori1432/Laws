@@ -1,10 +1,10 @@
 export const englishTranslations = {
   // Header
   welcome: 'Welcome',
-  welcomeMessage: 'Empowering Education Through Innovation',
+  welcomeMessage: 'Move UP in the World',
   choosePlatform: 'Choose Your Preferred Educational Platform',
-  empoweringEducation: 'Empowering Education',
-  empoweringFuture: 'Empowering Future Generations',
+  empoweringEducation: 'Move UP in the World',
+  empoweringFuture: 'Move UP in the World',
 
   // Laws of Success Card
   lawsOfSuccess: 'Laws of Success',
@@ -78,7 +78,7 @@ export const englishTranslations = {
   // Home Page (Laws of Success)
   welcomeTo: 'Welcome to',
   academy: 'Academy',
-  empoweringStudents: 'Empowering students for a successful future through exceptional education, innovative teaching methods, and personalized learning experiences.',
+  empoweringStudents: 'Move UP in the World through exceptional education, innovative teaching methods, and personalized learning experiences.',
   exploreCourses: 'Explore Courses',
   joinNow: 'Join Now',
   whyChooseUs: 'Why Choose Us?',
@@ -90,6 +90,7 @@ export const englishTranslations = {
   primaryLevel: 'Primary',
   middleLevel: 'Middle School',
   highLevel: 'High School',
+  bachelorLevel: 'Bachelor',
   loadingCourses: 'Loading courses...',
   price: 'Price:',
   pricingType: 'Type:',
@@ -112,8 +113,14 @@ export const englishTranslations = {
   message: 'Message',
   sendMessage: 'Send Message',
   sending: 'Sending...',
+
+  // Contact Information Labels
+  contactEmail: 'Email',
+  contactPhone: 'Phone',
+  contactEmailValue: 'support@lawsofsuccess.com',
+  contactPhoneValue: '0549322594',
   aboutAcademy: 'About Laws of Success Academy',
-  aboutAcademyDesc: 'Empowering students for a successful future through exceptional education',
+  aboutAcademyDesc: 'Move UP in the World through exceptional education',
   ourMission: 'Our Mission',
   ourMissionDesc: 'To empower students with the knowledge, skills, and confidence they need to achieve their full potential and make meaningful contributions to society.',
   ourVision: 'Our Vision',
@@ -133,7 +140,7 @@ export const englishTranslations = {
 
   // About Page
   aboutPageTitle: 'About Laws of Success Academy',
-  aboutPageDesc: 'Empowering students for a successful future through exceptional education',
+  aboutPageDesc: 'Move UP in the World through exceptional education',
   aboutPageContent: 'Laws of Success Academy is dedicated to providing exceptional educational experiences that prepare students for success in all aspects of life. Our comprehensive programs combine academic excellence with practical skills development.',
   aboutMission: 'Our Mission',
   aboutMissionDesc: 'To empower students with the knowledge, skills, and confidence they need to achieve their full potential and make meaningful contributions to society.',
@@ -192,6 +199,9 @@ export const englishTranslations = {
   enroll: 'Enroll',
   cancel: 'Cancel',
   gradeLevel: 'Grade Level',
+  showingResults: 'Showing {{filtered}} of {{total}} {{item}}',
+  failedToLoadCourses: 'Failed to load courses',
+  failedToLoadFilters: 'Failed to load filters',
   allGrades: 'All Grades',
   starts: 'Starts',
   loginRequired: 'Please login to register for courses',
@@ -211,12 +221,57 @@ export const englishTranslations = {
 
   // Dashboard Tabs
   overviewTab: 'Overview',
-  myCoursesTab: 'My Courses',
-  mySectionsTab: 'My Sections',
+  myLearningTab: 'My Learning',
+  attendanceTab: 'Attendance',
   availableCoursesTab: 'Available Courses',
   paymentsTab: 'Payments',
   contactTab: 'Contact',
   profileTab: 'Profile',
+
+  // Unified Learning Dashboard
+  myLearningDashboard: 'My Learning Dashboard',
+  learningDashboardDescription: 'Track your courses, schedule, and progress all in one place',
+  activeEnrollments: 'Active Enrollments',
+  loadingLearningData: 'Loading your learning data...',
+  noLearningActivities: 'No Learning Activities Yet',
+  startLearningJourney: 'Begin your educational journey by enrolling in available courses',
+  
+  // Learning Stats
+  activeSchedules: 'Active Schedules',
+  completedRegistrations: 'Approved Courses',
+  pendingRegistrations: 'Pending Approval',
+  monthlyProgress: 'Monthly Progress',
+  dashboardSessions: 'Sessions',
+  
+  // Schedule Section
+  currentSchedule: 'Current Schedule',
+  activeSections: 'Active Sections',
+  courseSection: 'Course & Section',
+  scheduleTime: 'Schedule & Time',
+  dashboardPaymentType: 'Payment Type',
+  progressLabel: 'Progress',
+  statusLabel: 'Status',
+  monthlyPayment: 'Monthly',
+  perSessionPayment: 'Per Session',
+  activeStatus: 'Active',
+  inactiveStatus: 'Inactive',
+  
+  // Course Registrations Section
+  courseRegistrations: 'Course Registrations',
+  totalRegistrations: 'Total Registrations',
+  dashboardStudent: 'Student',
+  currencyLabel: 'DA',
+  dashboardApproved: 'Approved',
+  dashboardPending: 'Pending',
+  dashboardRejected: 'Rejected',
+  seatReservedNotice: 'Your seat is reserved. Please visit the academy to complete your enrollment.',
+  
+  // Payment Summary for Learning Dashboard
+  learningPaymentSummary: 'Payment Summary',
+  totalOutstandingBalance: 'Outstanding Balance',
+  totalPaidAmount: 'Total Paid',
+  upcomingPaymentCount: 'Upcoming Payments',
+  viewPaymentDetails: 'View Payment Details',
 
   // Dashboard Stats
   totalCoursesStat: 'Total Courses',
@@ -250,6 +305,13 @@ export const englishTranslations = {
   totalPaidLabel: 'Total Paid:',
   outstandingBalanceLabel: 'Outstanding Balance:',
   nextPayment: 'Next Payment',
+  paymentBreakdown: 'Payment Breakdown',
+  paymentType: 'Payment Type',
+  unpaidSessions: 'Unpaid Sessions',
+  sessionsThisMonth: 'Sessions This Month',
+  unpaidAmount: 'Unpaid Amount',
+  unpaidSessionDetails: 'Unpaid Session Details',
+  overdue: 'Overdue',
 
   // Recent Activity
   recentActivity: 'Recent Activity',
@@ -360,34 +422,78 @@ export const englishTranslations = {
   pending: 'Pending',
   activeCoursesLabel: 'Active Courses:',
   totalRegistrationsLabel: 'Total Registrations:',
+  
+  // Profile Picture
+  uploadPicture: 'Upload Picture',
+  removePicture: 'Remove Picture',
+  pictureUploaded: 'Profile picture uploaded successfully',
+  pictureRemoved: 'Profile picture removed successfully',
+  uploadFailed: 'Failed to upload profile picture',
+  removeFailed: 'Failed to remove profile picture',
+  invalidFileType: 'Invalid file type. Please select PNG, JPG, JPEG, GIF, WebP, or BMP files.',
+  fileTooLarge: 'File is too large. Maximum size is 10MB.',
 
-  // Student Profile Information
-  studentInfoLabel: 'Student',
-  dateOfBirth: 'Date of Birth',
-  mobileUsername: 'Mobile Username',
-  mobileAccess: 'Mobile Access',
+  // Parent and Student Management
+  parentInformation: 'Parent Information',
+  parentName: 'Parent Name',
+  parentEmail: 'Parent Email',
+  parentPhone: 'Parent Phone',
+  myEnrollments: 'My Enrollments',
+  enrollmentDate: 'Enrollment Date',
+  sessionsAttended: 'Sessions Attended',
+  myStudents: 'My Students',
+  studentEmail: 'Student Email',
+  studentPhone: 'Student Phone',
+
+  // Account Security
+  accountSecurity: 'Account Security',
+  changePassword: 'Change Password',
+  currentPassword: 'Current Password',
+  newPassword: 'New Password',
+  confirmNewPassword: 'Confirm New Password',
+  updatePassword: 'Update Password',
+  updateStudent: 'Update Student',
+  parentMobileApp: 'Parent Mobile App',
+  studentMobileApp: 'Student Mobile App',
+  phoneNumber: 'Phone Number',
+  password: 'Password',
+  status: 'Status',
   enabled: 'Enabled',
   disabled: 'Disabled',
+  mobileCredentials: 'Mobile Credentials',
+  studentLoginCredentials: 'Student Login Credentials',
+  
+  // Profile Edit Actions
+  edit: 'Edit',
+  saving: 'Saving...',
+  saveParentInfo: 'Save Parent Info',
+  editPersonalInformation: 'Edit personal information',
+  editParentInformation: 'Edit parent information',
+  enterParentFullName: 'Enter parent\'s full name',
+  enterParentEmail: 'Enter parent\'s email',
+  enterParentPhone: 'Enter parent\'s phone number',
+  parentFullName: 'Parent Full Name',
+  parentNameLabel: 'Parent Name',
+  parentEmailLabel: 'Parent Email',
+  parentPhoneLabel: 'Parent Phone',
+  noEmailProvided: 'No email provided',
+  account: 'Account',
+  
+  // Password Messages
+  currentPasswordRequired: 'Current password is required',
+  
+  // Actions
+  saveChanges: 'Save Changes',
+
+  // Success Messages
+  profileUpdated: 'Profile updated successfully',
+  parentInfoUpdated: 'Parent information updated successfully',
+  studentUpdated: 'Student updated successfully',
+  passwordChanged: 'Password changed successfully',
 
   // Error Messages
-  failedToLoadData: 'Failed to load dashboard data. Some features may not work properly.',
-  failedToSendMessage: 'Failed to send message. Please try again.',
-  failedToUpdateProfile: 'Failed to update profile. Please try again.',
-  failedToChangePassword: 'Failed to change password. Please try again.',
-  networkError: 'Network error. Please check your connection and try again.',
-
-  // Loading States
-  loading: 'Loading...',
-  saving: 'Saving...',
-  updating: 'Updating...',
-  processing: 'Processing...',
-
-  // Actions
-  save: 'Save',
-  confirm: 'Confirm',
-  delete: 'Delete',
-  edit: 'Edit',
-  view: 'View',
+  failedToUpdateParentInfo: 'Failed to update parent information. Please try again.',
+  failedToUpdateStudent: 'Failed to update student. Please try again.',
   back: 'Back',
   next: 'Next',
   previous: 'Previous',
@@ -619,6 +725,8 @@ export const englishTranslations = {
   signIn: 'Sign In',
   noAccount: 'Don\'t have an account?',
   createAccountLogin: 'Create Account',
+  or: 'OR',
+  firstTimeQRLogin: 'Old Members - First Time QR Login',
 
   // Authentication - Register Page
   joinAcademy: 'Join Laws of Success Academy',
@@ -673,8 +781,176 @@ export const englishTranslations = {
   passwordsDoNotMatch: 'Passwords do not match',
   phoneFormatError: 'Phone number must be in format: 05xxxxxxxx, 06xxxxxxxx, or 07xxxxxxxx',
 
+  // First Visit Modal
+  firstVisitQuestion: 'Are you an existing student or new to our academy?',
+  existingStudent: 'I\'m an existing student',
+  newStudent: 'I\'m a new student',
+  chooseCorrectOption: 'Please choose the correct option to continue',
+
+  // Barcode Login Modal
+  barcodeLogin: 'Barcode Login',
+  enterBarcode: 'Please enter your student barcode to continue',
+  barcode: 'Student Barcode',
+  validating: 'Validating...',
+  validateBarcode: 'Validate Barcode',
+  invalidBarcode: 'Invalid barcode. Please check and try again.',
+  completeSetup: 'Complete Your Setup',
+  setupInstructions: 'Please complete your account setup to continue',
+  studentInfo: 'Student Information',
+  settingUp: 'Setting up...',
+  allFieldsRequired: 'All fields are required',
+  passwordMismatch: 'Passwords do not match',
+  passwordTooShort: 'Password must be at least 6 characters',
+  setupFailed: 'Setup failed. Please try again.',
+
   // Missing Admin Translation Keys
   adminMobileCredentials: 'Mobile Credentials',
   adminStudent: 'Student',
-  adminAllLevels: 'All Levels'
+  adminAllLevels: 'All Levels',
+
+  // Dashboard Login Information
+  parentLoginInfo: 'Parent Login Information',
+  notSet: 'Not set',
+  noPasswordToCopy: 'No password to copy',
+  passwordLabel: 'Password:',
+  regenerate: 'Regenerate',
+  regenerateSuccess: 'Password regenerated successfully!',
+  regenerateFailed: 'Failed to regenerate password',
+  parent: 'Parent',
+  student: 'Student',
+  credentialsRegenerated: 'credentials regenerated successfully',
+  regenerateCredentialsFailed: 'Failed to regenerate credentials',
+
+  // Alert Messages
+  registrationDetails: 'Registration Details',
+  contactMessageDetails: 'Contact Message Details',
+  alertStudent: 'Student',
+  alertParent: 'Parent',
+  alertCourse: 'Course',
+  alertPrice: 'Price',
+  alertSubmitted: 'Submitted',
+  alertFrom: 'From',
+  alertSubject: 'Subject',
+  alertMessage: 'Message',
+
+  // Dashboard Overview Tab
+  dashboardOverviewDescription: 'Here\'s your learning dashboard overview',
+  lastLoginToday: 'Last login: Today',
+  accountActive: 'Account: Active',
+  courseStatusOverview: 'Course Status Overview',
+  courseStatusDescription: 'Your current course registrations and status',
+
+  // Dashboard Stats Cards
+  totalCourses: 'Total Courses',
+  activeCourses: 'active',
+  approvedCourses: 'Approved Courses',
+  readyToStart: 'Ready to start',
+  pendingApprovals: 'Pending Approvals',
+  awaitingConfirmation: 'Awaiting confirmation',
+
+  // Contact Support
+  contactSupport: 'Contact Support',
+  getHelpSupport: 'Get help & support',
+  needHelp: 'Need Help?',
+  contactOurSupportTeam: 'Contact our support team',
+
+  // Dashboard Schedule Tab
+  mySchedule: 'My Schedule',
+  scheduleDescription: 'Track your enrolled courses and payment schedule',
+  loadingSchedule: 'Loading schedule...',
+  noScheduleAvailable: 'No schedule available',
+  viewSchedule: 'View Schedule',
+  checkClassTimings: 'Check class timings',
+
+  // Schedule Table Headers
+  sectionHeader: 'Section',
+  scheduleHeader: 'Schedule',
+  paymentTypeHeader: 'Payment Type',
+  sessionsThisMonthHeader: 'Sessions This Month',
+
+  // Payment Information
+  paymentTypeLabel: 'Payment Type',
+  owedLabel: 'Owed',
+
+  // Dashboard Quick Actions
+  outstandingBalance: 'Outstanding Balance',
+  dueThisMonth: 'Due this month',
+  browseCoursesAction: 'Browse Courses',
+  findNewCourses: 'Find new courses',
+
+  // Attendance Log - Dashboard Tab
+  attendanceLogTitle: 'Attendance Log',
+  attendanceLogSubtitle: 'Track your daily attendance and payment status',
+  totalSessions: 'Total Sessions',
+  presentSessions: 'Present Sessions',
+  absentSessions: 'Absent Sessions',
+  unpaidSessionsCount: 'Unpaid Sessions',
+  attendancePercentage: 'Attendance Rate',
+  dailyAttendanceRecords: 'Daily Attendance Records',
+  present: 'Present',
+  absent: 'Absent',
+  unpaid: 'Unpaid',
+  attendanceDate: 'Date',
+  courseNameAttendance: 'Course',
+  sessionDuration: 'Duration',
+  sessionPrice: 'Session Price',
+  paymentStatusAttendance: 'Payment Status',
+  paid: 'Paid',
+  paymentDueAttendance: 'Payment Due',
+  viewAttendanceLog: 'View Attendance Log',
+  checkDailyAttendance: 'Check your daily attendance log',
+  noAttendanceRecords: 'No Attendance Records',
+  attendanceHistoryWillAppear: 'Your attendance history will appear here once you start attending classes.',
+  attendanceSummary: 'Attendance Summary',
+  courseType: 'Course Type',
+  notSpecified: 'Not specified',
+  notPaid: 'Not paid',
+  session: 'Session',
+  paymentRequired: 'Payment Required',
+  paymentRequiredMessage: 'Payment Required - This session contributes to your debt',
+  attendanceRateLabel: 'Attendance Rate',
+  paymentRateLabel: 'Payment Rate',
+  totalSessionsLabel: 'Total Sessions',
+  outstandingDebtLabel: 'Outstanding Debt',
+  course: 'Course',
+  attendanceRate: 'Attendance Rate',
+  totalAmount: 'Total Amount',
+  paidAmount: 'Paid Amount',
+  outstandingAmount: 'Outstanding Amount',
+  makePayment: 'Make Payment',
+  payOutstandingFees: 'Pay outstanding fees',
+
+  // Payment Status Section
+  paymentStatusSection: 'Payment Status',
+  outstandingBalancesDesc: 'Outstanding balances and due dates',
+  allClear: 'All Clear',
+  totalOutstanding: 'Total Outstanding',
+  overduePayments: 'Overdue',
+  allClearCourses: 'All Clear',
+  viewPaymentDetail: 'View Payment Detail',
+  paymentOverdue: 'Payment Overdue',
+  sessionsLabel: 'Sessions',
+  thisMonth: 'this month',
+
+  // Profile Completion Modal
+  profile: {
+    complete_profile: 'Complete Your Profile',
+    complete_profile_subtitle: 'Please complete all required fields to access the dashboard.',
+    your_information: 'Your Information',
+    full_name: 'Full Name',
+    email: 'Email Address (Optional)',
+    phone: 'Phone Number',
+    gender: 'Gender',
+    date_of_birth: 'Date of Birth',
+    parent_information: 'Parent Information',
+    parent_name: 'Parent Full Name',
+    parent_phone: 'Parent Phone Number',
+    parent_email: 'Parent Email Address (Optional)',
+    student_information: 'Student Information',
+    student_name: 'Student Name',
+    save_and_continue: 'Save and Continue',
+    saving: 'Saving',
+    incomplete_fields: 'Please fill in all required fields',
+    update_failed: 'Failed to update profile. Please try again.'
+  }
 };

@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTranslatedCategory } from '../utils/categoryUtils';
+import { filterCourses, getCourseName, getCourseDescription } from '../utils/courseUtils';
 import { toast } from 'sonner';
 
 interface Course {
@@ -92,19 +93,15 @@ const Courses: React.FC = () => {
   const [showSectionsModal, setShowSectionsModal] = useState(false);
   const [filters, setFilters] = useState<any>(null);
 
-  // Helper functions for multilingual content
-  const getCourseName = (course: Course): string => {
-    if (language === 'ar' && course.name_ar) {
-      return course.name_ar;
+  const getLevelName = (level: any): string => {
+    if (language === 'ar' && level.name) {
+      return level.name;
     }
-    return course.name_en || course.name;
+    return level.name_en || level.name;
   };
 
-  const getCourseDescription = (course: Course): string => {
-    if (language === 'ar' && course.description_ar) {
-      return course.description_ar;
-    }
-    return course.description_en || course.description;
+  const getGradeName = (grade: any): string => {
+    return grade.name; // Grades are typically in Arabic, keep as is
   };
 
   useEffect(() => {
@@ -118,7 +115,7 @@ const Courses: React.FC = () => {
   }, [user]); // Remove dependency on filter states to prevent re-fetching on filter changes
 
   useEffect(() => {
-    filterCourses();
+    filterCoursesLocal();
   }, [courses, searchTerm, selectedCategory, selectedLevel, selectedGrade, selectedSubject, selectedPricingType]);
 
   const fetchCourses = async () => {
@@ -128,7 +125,7 @@ const Courses: React.FC = () => {
       setCourses(response.data.courses);
       setFilteredCourses(response.data.courses); // Initialize filtered courses with all courses
     } catch (error) {
-      toast.error('Failed to load courses');
+      toast.error(t('failedToLoadCourses'));
     } finally {
       setLoading(false);
     }
@@ -143,59 +140,14 @@ const Courses: React.FC = () => {
     }
   };
 
-  const filterCourses = () => {
-    let filtered = courses;
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(course =>
-        getCourseName(course).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        getCourseDescription(course).toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Filter by category
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(course => course.category === selectedCategory);
-    }
-
-    // Filter by level
-    if (selectedLevel !== 'All') {
-      filtered = filtered.filter(course => {
-        const courseName = getCourseName(course);
-        if (selectedLevel === 'preschool') {
-          return courseName.includes('روضة') ||
-                 courseName.includes('تمهيدي') ||
-                 courseName.includes('تحضيري') ||
-                 courseName.toLowerCase().includes('preschool') ||
-                 courseName.toLowerCase().includes('preparatory');
-        } else if (selectedLevel === 'primary') {
-          return courseName.includes('ابتدائي') ||
-                 courseName.toLowerCase().includes('primary');
-        } else if (selectedLevel === 'middle') {
-          return courseName.includes('متوسط') ||
-                 courseName.toLowerCase().includes('middle');
-        } else if (selectedLevel === 'high') {
-          return courseName.includes('ثانوي') ||
-                 courseName.toLowerCase().includes('high');
-        }
-        return false;
-      });
-    }
-
-    // Filter by subject
-    if (selectedSubject !== 'All') {
-      filtered = filtered.filter(course => 
-        getCourseName(course).includes(selectedSubject)
-      );
-    }
-
-    // Filter by pricing type
-    if (selectedPricingType !== 'All') {
-      filtered = filtered.filter(course =>
-        course.pricing_info?.pricing_type === selectedPricingType
-      );
-    }
+  const filterCoursesLocal = () => {
+    const filtered = filterCourses(courses, {
+      searchTerm,
+      category: selectedCategory,
+      level: selectedLevel,
+      subject: selectedSubject,
+      pricingType: selectedPricingType
+    }, language);
 
     setFilteredCourses(filtered);
   };
@@ -221,7 +173,7 @@ const Courses: React.FC = () => {
     } catch (error: any) {
       console.error('Failed to fetch registrations:', error);
       if (error.response?.status === 503) {
-        toast.error('Database temporarily unavailable. Registration status may not be accurate.');
+        toast.error(t('databaseUnavailable'));
       }
       setRegistrations([]); // Set empty array on error
     }
@@ -274,7 +226,7 @@ const Courses: React.FC = () => {
       // Refresh registrations to update the UI
       fetchMyRegistrations();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Registration failed');
+      toast.error(error.response?.data?.error || t('registrationFailed'));
     }
   };
 
@@ -311,7 +263,7 @@ const Courses: React.FC = () => {
       setSelectedCourseSections(null);
       fetchUserEnrollments(); // Refresh enrollments
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Enrollment failed');
+      toast.error(error.response?.data?.message || t('enrollmentFailed'));
     }
   };
 
@@ -383,7 +335,7 @@ const Courses: React.FC = () => {
                     <option value="All">{t('allLevelsCourses')}</option>
                     {filters?.levels?.map((level: any) => (
                       <option key={level.id} value={level.id}>
-                        {level.name}
+                        {getLevelName(level)}
                       </option>
                     ))}
                   </select>
@@ -403,7 +355,7 @@ const Courses: React.FC = () => {
                     <option value="All">{t('allGrades')}</option>
                     {filters?.levels?.find((level: any) => level.id === selectedLevel)?.grades?.map((grade: any) => (
                       <option key={grade.id} value={grade.id}>
-                        {grade.name}
+                        {getGradeName(grade)}
                       </option>
                     ))}
                   </select>
@@ -459,21 +411,24 @@ const Courses: React.FC = () => {
                   }}
                   className="px-4 py-2 text-sm text-primary hover:text-primary/80 font-medium"
                 >
-                  مسح جميع المرشحات
+                  {t('clearAllFilters')}
                 </button>
               </div>
             </div>
 
             {/* Results Count */}
             <div className="mt-4 text-sm text-muted-foreground">
-              عرض {filteredCourses.length} من {courses.length} درس
+              {t('showingResults')
+                .replace('{{filtered}}', filteredCourses.length.toString())
+                .replace('{{total}}', courses.length.toString())
+                .replace('{{item}}', t('courses').toLowerCase())}
             </div>
           </div>
 
           {filteredCourses.length === 0 ? (
             <div className="text-center">
               <p className="text-muted-foreground">
-                {courses.length === 0 ? 'No courses available at the moment' : 'No courses found matching your criteria'}
+                {courses.length === 0 ? t('noNewCourses') : t('noCoursesDesc')}
               </p>
             </div>
           ) : (
@@ -489,7 +444,7 @@ const Courses: React.FC = () => {
                       <div className="h-48 overflow-hidden">
                         <img
                           src={course.image_url}
-                          alt={getCourseName(course)}
+                          alt={getCourseName(course, language)}
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -511,8 +466,8 @@ const Courses: React.FC = () => {
                           </div>
                         )}
                       </div>
-                      <h3 className="text-xl font-bold text-foreground mb-2">{getCourseName(course)}</h3>
-                      <p className="text-muted-foreground mb-4 line-clamp-3">{getCourseDescription(course)}</p>
+                      <h3 className="text-xl font-bold text-foreground mb-2">{getCourseName(course, language)}</h3>
+                      <p className="text-muted-foreground mb-4 line-clamp-3">{getCourseDescription(course, language)}</p>
 
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between items-center">
@@ -549,7 +504,7 @@ const Courses: React.FC = () => {
                           </div>
                           {sectionEnrollment && (
                             <div className="text-xs text-center text-muted-foreground">
-                              {getCourseName(sectionEnrollment.course)} - {sectionEnrollment.section.section_name}
+                              {getCourseName(sectionEnrollment.course, language)} - {sectionEnrollment.section.section_name}
                             </div>
                           )}
                           {registrationStatus === 'pending' && (
@@ -588,7 +543,7 @@ const Courses: React.FC = () => {
               </div>
               <h3 className="text-xl font-bold text-foreground mb-2">{t('registrationSubmitted')}</h3>
               <p className="text-muted-foreground mb-4">
-                {t('registrationSubmittedDesc')} {getCourseName(selectedCourse)}
+                {t('registrationSubmittedDesc')} {getCourseName(selectedCourse, language)}
               </p>
               <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg mb-4">
                 <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
@@ -627,7 +582,7 @@ const Courses: React.FC = () => {
             <div className="text-center mb-6">
               <h3 className="text-2xl font-bold text-foreground mb-2">{t('chooseSection')}</h3>
               <p className="text-muted-foreground">
-                {t('selectSectionDesc').replace('{{courseName}}', getCourseName(selectedCourse))}
+                {t('selectSectionDesc').replace('{{courseName}}', getCourseName(selectedCourse, language))}
               </p>
             </div>
 
@@ -636,7 +591,7 @@ const Courses: React.FC = () => {
                 <div key={section.id} className="border border-border rounded-lg p-4 hover:border-primary transition-colors">
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <h4 className="font-semibold text-foreground">{getCourseName(selectedCourse)} - {section.section_name}</h4>
+                      <h4 className="font-semibold text-foreground">{getCourseName(selectedCourse, language)} - {section.section_name}</h4>
                       <p className="text-sm text-muted-foreground">{section.schedule}</p>
                     </div>
                     <div className="text-right">

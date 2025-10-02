@@ -26,7 +26,7 @@ const Footer: React.FC = () => {
                 </div>
               </div>
               <p className="text-muted-foreground mb-6 max-w-md">
-                Empowering students with knowledge and skills for a successful future.
+                Move UP in the World.
                 Join our community of learners and discover your potential.
               </p>
               <div className="flex space-x-4">
@@ -62,11 +62,6 @@ const Footer: React.FC = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/gallery" className="text-muted-foreground hover:text-primary transition-colors duration-200">
-                    Gallery
-                  </Link>
-                </li>
-                <li>
                   <Link to="/contact" className="text-muted-foreground hover:text-primary transition-colors duration-200">
                     Contact
                   </Link>
@@ -80,15 +75,15 @@ const Footer: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center space-x-3">
                   <MapPin className="w-4 h-4 text-primary" />
-                  <span className="text-muted-foreground">123 Education Street, City, Country</span>
+                  <span className="text-muted-foreground">CENTRE COMMERCIAL SIRABAH (قيصارية سي رابح) Centre ville nedroma</span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <Phone className="w-4 h-4 text-primary" />
-                  <span className="text-muted-foreground">+1 (555) 123-4567</span>
+                  <span className="text-muted-foreground">0791 19 74 30 / +213 791 19 74 30</span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <Mail className="w-4 h-4 text-primary" />
-                  <span className="text-muted-foreground">info@lawsofsuccess.com</span>
+                  <span className="text-muted-foreground">successroadacademy@outlook.fr</span>
                 </div>
               </div>
             </div>
