@@ -520,6 +520,12 @@ def approve_enrollment(enrollment_id):
         enrollment.approved_by = user_id
         enrollment.approved_at = datetime.utcnow()
 
+        # Handle kindergarten subscriptions
+        if enrollment.class_.course and enrollment.class_.course.is_kindergarten:
+            enrollment.is_kindergarten_subscription = True
+            enrollment.subscription_status = 'pending'  # Will be activated when first payment is made
+            enrollment.subscription_amount = enrollment.class_.course.monthly_price or enrollment.class_.course.price
+
         db.session.commit()
 
         # Auto-generate mobile credentials if eligible
@@ -623,6 +629,62 @@ def reject_enrollment(enrollment_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Failed to reject enrollment: {str(e)}'}), 500
+
+@admin_bp.route('/enrollments/<int:enrollment_id>', methods=['PUT'])
+@jwt_required()
+def update_enrollment(enrollment_id):
+    """Update enrollment details including subscription information (Admin only)"""
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    data = request.get_json()
+
+    try:
+        enrollment = Enrollment.query.get(enrollment_id)
+        if not enrollment:
+            return jsonify({'error': 'Enrollment not found'}), 404
+
+        # Update enrollment status if provided
+        if 'status' in data:
+            enrollment.status = data['status']
+        
+        # Update subscription details for kindergarten enrollments
+        if enrollment.is_kindergarten_subscription:
+            if 'subscription_status' in data:
+                enrollment.subscription_status = data['subscription_status']
+            
+            if 'subscription_amount' in data:
+                enrollment.subscription_amount = float(data['subscription_amount']) if data['subscription_amount'] else None
+            
+            if 'next_subscription_date' in data:
+                if data['next_subscription_date']:
+                    enrollment.next_subscription_date = datetime.strptime(data['next_subscription_date'], '%Y-%m-%d').date()
+                else:
+                    enrollment.next_subscription_date = None
+        
+        enrollment.updated_at = datetime.utcnow()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Enrollment updated successfully',
+            'enrollment': {
+                'id': enrollment.id,
+                'status': enrollment.status,
+                'subscription_status': enrollment.subscription_status if enrollment.is_kindergarten_subscription else None,
+                'subscription_amount': float(enrollment.subscription_amount) if enrollment.subscription_amount else None,
+                'next_subscription_date': enrollment.next_subscription_date.isoformat() if enrollment.next_subscription_date else None
+            }
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to update enrollment: {str(e)}")
+        return jsonify({'error': f'Failed to update enrollment: {str(e)}'}), 500
 
 @admin_bp.route('/students', methods=['GET'])
 @jwt_required()
@@ -1825,9 +1887,19 @@ def mark_attendance():
 
     # Get enrollment for debt check
     enrollment = Enrollment.query.filter_by(student_id=student_id, class_id=class_id).first()
-
-    # Check for unpaid debts before marking attendance
-    has_unpaid_debts = (student.total_debt and student.total_debt > 0) or (enrollment.total_debt if enrollment and enrollment.total_debt else 0 > 0)
+    
+    # Skip payment checks for kindergarten students - they use subscription model
+    if enrollment and enrollment.is_kindergarten_subscription:
+        log_details.update({
+            'kindergarten_enrollment': True,
+            'subscription_status': enrollment.subscription_status,
+            'note': 'Kindergarten enrollment - using subscription model, no payment tracking'
+        })
+        # Continue without payment checks - kindergarten uses subscription model
+        has_unpaid_debts = False
+    else:
+        # Check for unpaid debts before marking attendance (regular students only)
+        has_unpaid_debts = (student.total_debt and student.total_debt > 0) or (enrollment.total_debt if enrollment and enrollment.total_debt else 0 > 0)
     
     if has_unpaid_debts and not force_attendance:
         debt_warning_message = f"This student has unpaid debts. Total debt: {float(student.total_debt or 0):.2f} DA. Are they cleared or not yet? To clear previous debts (if there was), please process payment first."
@@ -1978,6 +2050,7 @@ def mark_attendance():
             
             existing_attendance.status = status
             existing_attendance.marked_by = user.id
+            existing_attendance.is_kindergarten_attendance = is_kindergarten_class
             message = 'Attendance updated successfully'
             
             log_details.update({
@@ -2000,7 +2073,8 @@ def mark_attendance():
                 class_id=class_id,
                 attendance_date=attendance_date,
                 status=status,
-                marked_by=user.id
+                marked_by=user.id,
+                is_kindergarten_attendance=is_kindergarten_class
             )
             db.session.add(attendance)
             message = 'Attendance marked successfully'
@@ -2018,7 +2092,10 @@ def mark_attendance():
         payment_required = False
         course_price = Decimal('0')
 
-        if enrollment:
+        # Skip payment tracking for kindergarten classes (they use subscription-based payments)
+        is_kindergarten_class = course.is_kindergarten if course else False
+        
+        if enrollment and not is_kindergarten_class:
             # Get course price for payment calculations
             course = enrollment.class_.course if enrollment.class_ else None
             if course:
@@ -5602,11 +5679,16 @@ def get_students_detailed():
                     'section_name': class_obj.name,
                     'course_name': course.name,
                     'course_id': course.id,
+                    'category': course.category,  # Include category to identify kindergarten
+                    'is_kindergarten': enrollment.is_kindergarten_subscription,  # Flag for kindergarten enrollment
                     'pricing_type': course.pricing_type or 'session',  # Use pricing_type field to identify session vs monthly
                     'payment_type': enrollment.payment_type,
                     'enrollment_status': enrollment.status,  # Approval status (pending/approved/rejected)
                     'monthly_payment_status': enrollment.monthly_payment_status,
                     'monthly_sessions_attended': enrollment.monthly_sessions_attended or 0,  # Add monthly sessions
+                    'subscription_status': enrollment.subscription_status if enrollment.is_kindergarten_subscription else None,
+                    'subscription_amount': float(enrollment.subscription_amount) if enrollment.subscription_amount else None,
+                    'next_subscription_date': enrollment.next_subscription_date.isoformat() if enrollment.next_subscription_date else None,
                     'attendance_rate': attendance_rate,
                     'sessions_attended': attended_sessions,
                     'total_sessions': total_sessions,
@@ -6899,7 +6981,7 @@ def get_student_payment_history(student_id):
                 SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent_count,
                 COUNT(*) as total_sessions,
                 c.price_per_session
-            FROM attendance a
+            FROM attendances a
             JOIN enrollments e ON a.enrollment_id = e.id
             JOIN classes cl ON e.class_id = cl.id
             JOIN courses c ON cl.course_id = c.id
@@ -7020,7 +7102,7 @@ def get_student_attendance_history(student_id):
                 c.name as course_name,
                 c.price_per_session,
                 u.full_name as marked_by_name
-            FROM attendance a
+            FROM attendances a
             JOIN classes cl ON a.class_id = cl.id
             JOIN courses c ON cl.course_id = c.id
             LEFT JOIN users u ON a.marked_by = u.id
@@ -7236,3 +7318,471 @@ def get_recent_notifications():
     except Exception as e:
         logger.error(f"Error fetching recent notifications: {str(e)}")
         return jsonify({'error': 'Failed to fetch notifications'}), 500
+
+# ===== KINDERGARTEN MANAGEMENT ENDPOINTS =====
+
+@admin_bp.route('/kindergarten/classes', methods=['POST'])
+@jwt_required()
+def create_kindergarten_class():
+    """Create a new kindergarten class with multi-day schedule (Admin only)"""
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        course_id = request.form.get('course_id')
+        name = request.form.get('name')
+        multi_day_schedule = request.form.get('multi_day_schedule')  # JSON array like "[0,2,4]"
+        start_time = request.form.get('start_time')
+        end_time = request.form.get('end_time')
+        max_students = request.form.get('max_students')
+
+        if not all([course_id, name, multi_day_schedule, start_time, end_time, max_students]):
+            return jsonify({'error': 'All fields are required'}), 400
+
+        # Validate course is kindergarten
+        course = Course.query.get(course_id)
+        if not course or not course.is_kindergarten:
+            return jsonify({'error': 'Course must be a kindergarten course'}), 400
+
+        # Validate multi_day_schedule JSON
+        import json
+        try:
+            days_list = json.loads(multi_day_schedule)
+            if not isinstance(days_list, list) or not days_list:
+                raise ValueError("Invalid schedule format")
+            # Validate day indices (0-6)
+            for day in days_list:
+                if not isinstance(day, int) or day < 0 or day > 6:
+                    raise ValueError("Invalid day index")
+        except (json.JSONDecodeError, ValueError) as e:
+            return jsonify({'error': f'Invalid multi_day_schedule format: {str(e)}'}), 400
+
+        # Parse times
+        try:
+            start_time_obj = datetime.strptime(start_time, '%H:%M').time()
+            end_time_obj = datetime.strptime(end_time, '%H:%M').time()
+        except ValueError:
+            return jsonify({'error': 'Invalid time format. Use HH:MM'}), 400
+
+        kindergarten_class = Class(
+            course_id=int(course_id),
+            name=name,
+            day_of_week=None,  # NULL for kindergarten multi-day classes
+            multi_day_schedule=multi_day_schedule,
+            start_time=start_time_obj,
+            end_time=end_time_obj,
+            max_students=int(max_students),
+            is_active=True
+        )
+
+        db.session.add(kindergarten_class)
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Kindergarten class created successfully',
+            'class': {
+                'id': kindergarten_class.id,
+                'course_id': kindergarten_class.course_id,
+                'name': kindergarten_class.name,
+                'multi_day_schedule': kindergarten_class.multi_day_schedule,
+                'schedule': kindergarten_class.schedule,
+                'start_time': kindergarten_class.start_time.strftime('%H:%M'),
+                'end_time': kindergarten_class.end_time.strftime('%H:%M'),
+                'max_students': kindergarten_class.max_students,
+                'is_active': kindergarten_class.is_active
+            }
+        }), 201
+
+    except Exception as e:
+        print(f"Kindergarten class creation failed: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to create kindergarten class'}), 500
+
+@admin_bp.route('/kindergarten/classes', methods=['GET'])
+@jwt_required()
+def get_kindergarten_classes():
+    """Get all kindergarten classes (Admin only)"""
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        # Get all kindergarten courses first
+        kindergarten_course_ids = db.session.query(Course.id).filter_by(is_kindergarten=True).subquery()
+        
+        # Get classes for kindergarten courses
+        classes = Class.query.filter(Class.course_id.in_(kindergarten_course_ids)).all()
+        
+        classes_data = []
+        for cls in classes:
+            classes_data.append({
+                'id': cls.id,
+                'course_id': cls.course_id,
+                'course_name': cls.course.name if cls.course else 'Unknown',
+                'name': cls.name,
+                'multi_day_schedule': cls.multi_day_schedule,
+                'schedule': cls.schedule,
+                'start_time': cls.start_time.strftime('%H:%M') if cls.start_time else None,
+                'end_time': cls.end_time.strftime('%H:%M') if cls.end_time else None,
+                'max_students': cls.max_students,
+                'current_students': cls.current_students,
+                'is_active': cls.is_active,
+                'created_at': cls.created_at.isoformat() if cls.created_at else None
+            })
+        
+        return jsonify({
+            'classes': classes_data,
+            'total': len(classes_data)
+        }), 200
+
+    except Exception as e:
+        print(f"Failed to fetch kindergarten classes: {e}")
+        return jsonify({'error': 'Failed to fetch kindergarten classes'}), 500
+
+@admin_bp.route('/kindergarten/classes/<int:class_id>', methods=['PUT'])
+@jwt_required()
+def update_kindergarten_class(class_id):
+    """Update a kindergarten class (Admin only)"""
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        kindergarten_class = Class.query.get(class_id)
+        if not kindergarten_class:
+            return jsonify({'error': 'Class not found'}), 404
+
+        # Validate course is kindergarten
+        if not kindergarten_class.course or not kindergarten_class.course.is_kindergarten:
+            return jsonify({'error': 'Class must belong to a kindergarten course'}), 400
+
+        # Update fields
+        if 'name' in request.form:
+            kindergarten_class.name = request.form['name']
+        
+        if 'multi_day_schedule' in request.form:
+            multi_day_schedule = request.form['multi_day_schedule']
+            # Validate multi_day_schedule JSON
+            import json
+            try:
+                days_list = json.loads(multi_day_schedule)
+                if not isinstance(days_list, list) or not days_list:
+                    raise ValueError("Invalid schedule format")
+                # Validate day indices (0-6)
+                for day in days_list:
+                    if not isinstance(day, int) or day < 0 or day > 6:
+                        raise ValueError("Invalid day index")
+                kindergarten_class.multi_day_schedule = multi_day_schedule
+            except (json.JSONDecodeError, ValueError) as e:
+                return jsonify({'error': f'Invalid multi_day_schedule format: {str(e)}'}), 400
+        
+        if 'start_time' in request.form:
+            try:
+                kindergarten_class.start_time = datetime.strptime(request.form['start_time'], '%H:%M').time()
+            except ValueError:
+                return jsonify({'error': 'Invalid start_time format. Use HH:MM'}), 400
+        
+        if 'end_time' in request.form:
+            try:
+                kindergarten_class.end_time = datetime.strptime(request.form['end_time'], '%H:%M').time()
+            except ValueError:
+                return jsonify({'error': 'Invalid end_time format. Use HH:MM'}), 400
+        
+        if 'max_students' in request.form:
+            kindergarten_class.max_students = int(request.form['max_students'])
+        
+        if 'is_active' in request.form:
+            kindergarten_class.is_active = request.form['is_active'].lower() == 'true'
+
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Kindergarten class updated successfully',
+            'class': {
+                'id': kindergarten_class.id,
+                'course_id': kindergarten_class.course_id,
+                'name': kindergarten_class.name,
+                'multi_day_schedule': kindergarten_class.multi_day_schedule,
+                'schedule': kindergarten_class.schedule,
+                'start_time': kindergarten_class.start_time.strftime('%H:%M') if kindergarten_class.start_time else None,
+                'end_time': kindergarten_class.end_time.strftime('%H:%M') if kindergarten_class.end_time else None,
+                'max_students': kindergarten_class.max_students,
+                'is_active': kindergarten_class.is_active
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"Kindergarten class update failed: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to update kindergarten class'}), 500
+
+@admin_bp.route('/kindergarten/enrollments/<int:enrollment_id>/activate-subscription', methods=['POST'])
+@jwt_required()
+def activate_kindergarten_subscription(enrollment_id):
+    """Activate a kindergarten subscription (Admin only)"""
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        enrollment = Enrollment.query.get(enrollment_id)
+        if not enrollment:
+            return jsonify({'error': 'Enrollment not found'}), 404
+
+        if not enrollment.is_kindergarten_subscription:
+            return jsonify({'error': 'Enrollment is not a kindergarten subscription'}), 400
+
+        # Set subscription start date and next payment date
+        today = date.today()
+        enrollment.subscription_start_date = today
+        enrollment.subscription_status = 'active'
+        
+        # Set next subscription date to same day next month
+        if today.month == 12:
+            next_month = 1
+            next_year = today.year + 1
+        else:
+            next_month = today.month + 1
+            next_year = today.year
+        
+        enrollment.next_subscription_date = date(next_year, next_month, today.day)
+        
+        # Set subscription amount from course
+        course = enrollment.course
+        if course:
+            enrollment.subscription_amount = course.monthly_price or course.price
+
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Kindergarten subscription activated successfully',
+            'enrollment': {
+                'id': enrollment.id,
+                'subscription_start_date': enrollment.subscription_start_date.isoformat(),
+                'next_subscription_date': enrollment.next_subscription_date.isoformat(),
+                'subscription_status': enrollment.subscription_status,
+                'subscription_amount': float(enrollment.subscription_amount) if enrollment.subscription_amount else None
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"Subscription activation failed: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to activate subscription'}), 500
+
+@admin_bp.route('/kindergarten/enrollments/<int:enrollment_id>/renew-subscription', methods=['POST'])
+@jwt_required()
+def renew_kindergarten_subscription(enrollment_id):
+    """Renew a kindergarten subscription payment (Admin only)"""
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        enrollment = Enrollment.query.get(enrollment_id)
+        if not enrollment:
+            return jsonify({'error': 'Enrollment not found'}), 404
+
+        if not enrollment.is_kindergarten_subscription:
+            return jsonify({'error': 'Enrollment is not a kindergarten subscription'}), 400
+
+        # Calculate next subscription date
+        current_next_date = enrollment.next_subscription_date or date.today()
+        
+        if current_next_date.month == 12:
+            next_month = 1
+            next_year = current_next_date.year + 1
+        else:
+            next_month = current_next_date.month + 1
+            next_year = current_next_date.year
+        
+        enrollment.next_subscription_date = date(next_year, next_month, current_next_date.day)
+        enrollment.subscription_status = 'active'
+
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Kindergarten subscription renewed successfully',
+            'enrollment': {
+                'id': enrollment.id,
+                'next_subscription_date': enrollment.next_subscription_date.isoformat(),
+                'subscription_status': enrollment.subscription_status
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"Subscription renewal failed: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to renew subscription'}), 500
+
+@admin_bp.route('/kindergarten/attendance', methods=['POST'])
+@jwt_required()
+def mark_kindergarten_attendance():
+    """Mark attendance for kindergarten classes (no payment coupling) (Admin only)"""
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        student_id = request.form.get('student_id')
+        class_id = request.form.get('class_id')
+        attendance_date = request.form.get('attendance_date')
+        status = request.form.get('status', 'present')
+
+        if not all([student_id, class_id, attendance_date]):
+            return jsonify({'error': 'student_id, class_id, and attendance_date are required'}), 400
+
+        # Validate class is kindergarten
+        class_obj = Class.query.get(class_id)
+        if not class_obj or not class_obj.course or not class_obj.course.is_kindergarten:
+            return jsonify({'error': 'Class must be a kindergarten class'}), 400
+
+        # Parse date
+        try:
+            attendance_date_obj = datetime.strptime(attendance_date, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+
+        # Check if attendance already exists
+        existing_attendance = Attendance.query.filter_by(
+            student_id=student_id,
+            class_id=class_id,
+            attendance_date=attendance_date_obj
+        ).first()
+
+        if existing_attendance:
+            # Update existing attendance
+            existing_attendance.status = status
+            existing_attendance.marked_by = user_id
+            existing_attendance.marked_at = datetime.utcnow()
+            existing_attendance.is_kindergarten_attendance = True
+            attendance = existing_attendance
+        else:
+            # Create new attendance
+            attendance = Attendance(
+                student_id=student_id,
+                class_id=class_id,
+                attendance_date=attendance_date_obj,
+                status=status,
+                marked_by=user_id,
+                is_kindergarten_attendance=True
+            )
+            db.session.add(attendance)
+
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Kindergarten attendance marked successfully',
+            'attendance': {
+                'id': attendance.id,
+                'student_id': attendance.student_id,
+                'class_id': attendance.class_id,
+                'attendance_date': attendance.attendance_date.isoformat(),
+                'status': attendance.status,
+                'marked_by': attendance.marked_by,
+                'marked_at': attendance.marked_at.isoformat(),
+                'is_kindergarten_attendance': attendance.is_kindergarten_attendance
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"Kindergarten attendance marking failed: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to mark kindergarten attendance'}), 500
+
+@admin_bp.route('/kindergarten/attendance/bulk', methods=['POST'])
+@jwt_required()
+def bulk_mark_kindergarten_attendance():
+    """Bulk mark attendance for kindergarten classes (Admin only)"""
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        class_id = request.form.get('class_id')
+        attendance_date = request.form.get('attendance_date')
+        attendance_data = request.form.get('attendance_data')  # JSON string
+
+        if not all([class_id, attendance_date, attendance_data]):
+            return jsonify({'error': 'class_id, attendance_date, and attendance_data are required'}), 400
+
+        # Validate class is kindergarten
+        class_obj = Class.query.get(class_id)
+        if not class_obj or not class_obj.course or not class_obj.course.is_kindergarten:
+            return jsonify({'error': 'Class must be a kindergarten class'}), 400
+
+        # Parse date and data
+        try:
+            attendance_date_obj = datetime.strptime(attendance_date, '%Y-%m-%d').date()
+            import json
+            attendance_list = json.loads(attendance_data)
+        except (ValueError, json.JSONDecodeError) as e:
+            return jsonify({'error': f'Invalid format: {str(e)}'}), 400
+
+        processed_attendances = []
+        
+        for attendance_item in attendance_list:
+            student_id = attendance_item.get('student_id')
+            status = attendance_item.get('status', 'present')
+            
+            if not student_id:
+                continue
+
+            # Check if attendance already exists
+            existing_attendance = Attendance.query.filter_by(
+                student_id=student_id,
+                class_id=class_id,
+                attendance_date=attendance_date_obj
+            ).first()
+
+            if existing_attendance:
+                # Update existing attendance
+                existing_attendance.status = status
+                existing_attendance.marked_by = user_id
+                existing_attendance.marked_at = datetime.utcnow()
+                existing_attendance.is_kindergarten_attendance = True
+                attendance = existing_attendance
+            else:
+                # Create new attendance
+                attendance = Attendance(
+                    student_id=student_id,
+                    class_id=class_id,
+                    attendance_date=attendance_date_obj,
+                    status=status,
+                    marked_by=user_id,
+                    is_kindergarten_attendance=True
+                )
+                db.session.add(attendance)
+            
+            processed_attendances.append({
+                'id': attendance.id,
+                'student_id': attendance.student_id,
+                'status': attendance.status
+            })
+
+        db.session.commit()
+
+        return jsonify({
+            'message': f'Bulk kindergarten attendance marked successfully for {len(processed_attendances)} students',
+            'processed_attendances': processed_attendances
+        }), 200
+
+    except Exception as e:
+        print(f"Bulk kindergarten attendance marking failed: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to bulk mark kindergarten attendance'}), 500

@@ -84,17 +84,39 @@ def generate_barcode_image(barcode_data, width=300, height=100):
         import barcode
         from barcode.writer import ImageWriter
         from io import BytesIO
+        
+        print(f"🎨 Generating barcode image for: {barcode_data}")
 
-        # Generate barcode
+        # Generate barcode using Code128 format
         code128 = barcode.get('code128', barcode_data, writer=ImageWriter())
         buffer = BytesIO()
-        code128.write(buffer, options={'module_width': 0.4, 'module_height': 15, 'quiet_zone': 1, 'font_size': 10, 'text_distance': 5})
+        
+        # Write barcode to buffer with custom options
+        code128.write(buffer, options={
+            'module_width': 0.4,      # Width of individual bars
+            'module_height': 15,       # Height of bars
+            'quiet_zone': 1,          # White space on sides
+            'font_size': 10,          # Text size below barcode
+            'text_distance': 5,       # Distance between barcode and text
+            'write_text': True,       # Show text below barcode
+        })
 
         # Convert to base64
+        buffer.seek(0)  # Reset buffer position
         img_str = base64.b64encode(buffer.getvalue()).decode()
-        return f"data:image/png;base64,{img_str}"
-    except ImportError:
-        # Fallback if python-barcode is not installed
+        barcode_image = f"data:image/png;base64,{img_str}"
+        
+        print(f"✅ Barcode image generated successfully (length: {len(barcode_image)} chars)")
+        return barcode_image
+        
+    except ImportError as e:
+        print(f"❌ python-barcode library not installed: {e}")
+        print("💡 Install with: pip install python-barcode[images]")
+        return None
+    except Exception as e:
+        print(f"❌ Error generating barcode image: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def find_closest_course_for_attendance(scan_time, student_id):
