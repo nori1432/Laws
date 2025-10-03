@@ -749,16 +749,27 @@ def get_all_sections():
         sections_data.append({
             'id': section.id,
             'course_id': section.course_id,
+            'name': section.name,
             'course_name': course_name,
             'course_category': course_category,
             'section_name': section.name,
             'schedule': section.schedule,  # This will use the @property method
+            'multi_day_schedule': section.multi_day_schedule,  # Include for kindergarten support
             'start_date': section.start_time.strftime('%H:%M') if section.start_time else None,
             'end_date': section.end_time.strftime('%H:%M') if section.end_time else None,
+            'start_time': section.start_time.strftime('%H:%M') if section.start_time else None,
+            'end_time': section.end_time.strftime('%H:%M') if section.end_time else None,
             'max_students': section.max_students,
             'current_students': enrollment_count,
+            'enrolled_students': enrollment_count,
             'is_active': section.is_active,
-            'created_at': section.created_at.isoformat() if section.created_at else None
+            'created_at': section.created_at.isoformat() if section.created_at else None,
+            'course': {
+                'id': section.course_id,
+                'name': course_name,
+                'category': course_category,
+                'is_active': True
+            }
         })
 
     return jsonify({'sections': sections_data}), 200

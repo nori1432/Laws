@@ -703,52 +703,79 @@ def get_comprehensive_student_data(student):
         attendance_summary['absent_sessions'] += absent_count
         attendance_summary['late_sessions'] += late_count
         
-        # Calculate debt for this enrollment
-        enrollment_debt = float(enrollment.total_debt) if enrollment.total_debt else 0.0
-        unpaid_sessions = sum(1 for a in attendance_records 
-                            if a.status == 'present' and getattr(a, 'payment_status', 'unpaid') == 'unpaid') if attendance_records else 0
-        
-        # Determine payment status
-        if enrollment_debt > 0:
-            payment_summary['courses_with_debt'] += 1
-            payment_status = 'debt'
+        # Handle payment info based on enrollment type
+        if enrollment.is_kindergarten_subscription:
+            # Kindergarten subscription-based payment
+            payment_info = {
+                'type': 'kindergarten_subscription',
+                'subscription_status': enrollment.subscription_status,
+                'subscription_amount': float(enrollment.subscription_amount) if enrollment.subscription_amount else 0.0,
+                'next_payment_date': enrollment.next_subscription_date.isoformat() if enrollment.next_subscription_date else None,
+                'subscription_start_date': enrollment.subscription_start_date.isoformat() if enrollment.subscription_start_date else None,
+                'debt_amount': 0.0,  # No debt for subscriptions
+                'status': 'subscription_active' if enrollment.subscription_status == 'active' else 'subscription_pending',
+                'unpaid_sessions': 0,  # Not applicable for subscriptions
+                'course_price': float(enrollment.subscription_amount) if enrollment.subscription_amount else 0.0
+            }
+            payment_summary['courses_clear'] += 1  # Subscriptions are always "clear"
         else:
-            payment_summary['courses_clear'] += 1
-            payment_status = 'clear'
-        
-        # Add to enrollment debts for detailed view
-        if enrollment_debt > 0:
-            payment_summary['enrollment_debts'].append({
-                'course_name': course.name,
-                'debt_amount': enrollment_debt,
-                'debt_sessions': unpaid_sessions
-            })
-        
-        # Create enrollment data
-        enrollment_info = {
-            'id': enrollment.id,
-            'course_name': course.name,
-            'class_name': class_info.name,
-            'instructor_name': getattr(class_info, 'instructor_name', 'TBA'),
-            'day_of_week': class_info.day_of_week,
-            'start_time': class_info.start_time.strftime('%H:%M') if class_info.start_time else 'TBA',
-            'end_time': class_info.end_time.strftime('%H:%M') if class_info.end_time else 'TBA',
-            'enrollment_date': enrollment.enrollment_date.strftime('%Y-%m-%d') if enrollment.enrollment_date else None,
-            'status': enrollment.status,  # New enrollment status (pending/approved/rejected)
-            'attendance_summary': {
-                'total_sessions': total_count,
-                'present_sessions': present_count,
-                'absent_sessions': absent_count,
-                'late_sessions': late_count,
-                'attendance_rate': round((present_count / total_count * 100) if total_count > 0 else 0, 1)
-            },
-            'payment_info': {
+            # Regular attendance-based payment
+            enrollment_debt = float(enrollment.total_debt) if enrollment.total_debt else 0.0
+            unpaid_sessions = sum(1 for a in attendance_records 
+                                if a.status == 'present' and getattr(a, 'payment_status', 'unpaid') == 'unpaid') if attendance_records else 0
+            
+            # Determine payment status
+            if enrollment_debt > 0:
+                payment_summary['courses_with_debt'] += 1
+                payment_status = 'debt'
+            else:
+                payment_summary['courses_clear'] += 1
+                payment_status = 'clear'
+            
+            # Add to enrollment debts for detailed view
+            if enrollment_debt > 0:
+                payment_summary['enrollment_debts'].append({
+                    'course_name': course.name,
+                    'debt_amount': enrollment_debt,
+                    'debt_sessions': unpaid_sessions
+                })
+            
+            payment_info = {
                 'type': getattr(course, 'pricing_type', 'session') or 'session',
                 'debt_amount': enrollment_debt,
                 'status': payment_status,
                 'unpaid_sessions': unpaid_sessions,
                 'course_price': float(course.price) if course.price else 0.0
             }
+        
+        # Calculate attendance rate for this enrollment
+        attendance_rate = 0
+        if total_count > 0:
+            attendance_rate = round((present_count / total_count) * 100, 1)
+        
+        # Build enrollment_info dictionary
+        enrollment_info = {
+            'id': enrollment.id,
+            'course_id': course.id,
+            'course_name': course.name,
+            'course_category': course.category,
+            'class_id': class_info.id,
+            'class_name': class_info.name,
+            'schedule': class_info.schedule,
+            'enrollment_date': enrollment.enrollment_date.strftime('%Y-%m-%d') if enrollment.enrollment_date else None,
+            'status': enrollment.status if enrollment.status else 'pending',  # status is enum: pending/approved/rejected
+            'is_kindergarten': enrollment.is_kindergarten_subscription,
+            'subscription_status': enrollment.subscription_status if enrollment.is_kindergarten_subscription else None,
+            'next_subscription_date': enrollment.next_subscription_date.isoformat() if enrollment.is_kindergarten_subscription and enrollment.next_subscription_date else None,
+            'subscription_amount': float(enrollment.subscription_amount) if enrollment.is_kindergarten_subscription and enrollment.subscription_amount else None,
+            'attendance_summary': {
+                'total_sessions': total_count,
+                'present_sessions': present_count,
+                'absent_sessions': absent_count,
+                'late_sessions': late_count,
+                'attendance_rate': attendance_rate
+            },
+            'payment_info': payment_info
         }
         
         enrollment_data.append(enrollment_info)

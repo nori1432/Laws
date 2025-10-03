@@ -8108,3 +8108,150 @@
     "notification_sent": true
   }
 }
+[ATTENDANCE_LOG] MARK_ATTENDANCE_ERROR: {
+  "timestamp": "2025-10-03T20:20:37.020467+01:00",
+  "operation_type": "MARK_ATTENDANCE_ERROR",
+  "user_id": 2,
+  "success": false,
+  "details": {
+    "operation": "mark_attendance",
+    "start_time": "2025-10-03T20:20:36.159772",
+    "admin_user_id": 2,
+    "admin_username": "ghalmiahmednoureddine@gmail.com",
+    "request_data": {
+      "student_id": 1,
+      "class_id": 14,
+      "status": "present",
+      "course_type": "session",
+      "date": "2025-10-03",
+      "add_as_absent": false,
+      "force": true,
+      "payment_status": "paid"
+    },
+    "student_id": 1,
+    "class_id": 14,
+    "status": "present",
+    "add_as_absent": false,
+    "force_attendance": true,
+    "student_name": "AHMED GHALMI",
+    "class_name": "Group1",
+    "course_name": "\u0627\u0644\u0633\u0646\u0629 \u0627\u0644\u062b\u0627\u0644\u062b\u0629 \u0627\u0628\u062a\u062f\u0627\u0626\u064a - \u0627\u0646\u062c\u0644\u064a\u0632\u064a\u0629",
+    "course_type": "session",
+    "attendance_date": "2025-10-03",
+    "class_schedule": {
+      "start_time": "11:00",
+      "end_time": "13:00",
+      "day": "Saturday"
+    },
+    "time_check": {
+      "forced": true,
+      "admin_override": true,
+      "message": "Time restrictions bypassed by admin"
+    },
+    "operation_type": "create",
+    "end_time": "2025-10-03T20:20:37.020370",
+    "duration_seconds": 0.860598,
+    "exception_type": "UnboundLocalError",
+    "exception_message": "local variable 'is_kindergarten_class' referenced before assignment",
+    "final_status": "ERROR"
+  },
+  "error": "local variable 'is_kindergarten_class' referenced before assignment"
+}
+[ATTENDANCE_LOG] MARK_ATTENDANCE_ERROR: {
+  "timestamp": "2025-10-03T20:21:59.692565+01:00",
+  "operation_type": "MARK_ATTENDANCE_ERROR",
+  "user_id": 2,
+  "success": false,
+  "details": {
+    "operation": "mark_attendance",
+    "start_time": "2025-10-03T20:21:58.494076",
+    "admin_user_id": 2,
+    "admin_username": "ghalmiahmednoureddine@gmail.com",
+    "request_data": {
+      "student_id": 1,
+      "class_id": 71,
+      "status": "present",
+      "course_type": "monthly",
+      "date": "2025-10-03",
+      "add_as_absent": false,
+      "force": true,
+      "payment_status": "paid"
+    },
+    "student_id": 1,
+    "class_id": 71,
+    "status": "present",
+    "add_as_absent": false,
+    "force_attendance": true,
+    "student_name": "AHMED GHALMI",
+    "class_name": "Group1",
+    "course_name": "\u0634\u0639\u0628\u0629 \u0644\u063a\u0627\u062a - \u0627\u0633\u0628\u0627\u0646\u064a\u0629",
+    "course_type": "session",
+    "attendance_date": "2025-10-03",
+    "class_schedule": {
+      "start_time": "09:00",
+      "end_time": "TBD",
+      "day": "Tuesday"
+    },
+    "time_check": {
+      "forced": true,
+      "admin_override": true,
+      "message": "Time restrictions bypassed by admin"
+    },
+    "operation_type": "create",
+    "end_time": "2025-10-03T20:21:59.692565",
+    "duration_seconds": 1.198489,
+    "exception_type": "UnboundLocalError",
+    "exception_message": "local variable 'is_kindergarten_class' referenced before assignment",
+    "final_status": "ERROR"
+  },
+  "error": "local variable 'is_kindergarten_class' referenced before assignment"
+}
+[ATTENDANCE_LOG] MARK_ATTENDANCE_ERROR: {
+  "timestamp": "2025-10-03T20:22:29.911268+01:00",
+  "operation_type": "MARK_ATTENDANCE_ERROR",
+  "user_id": 2,
+  "success": false,
+  "details": {
+    "operation": "mark_attendance",
+    "start_time": "2025-10-03T20:22:29.090222",
+    "admin_user_id": 2,
+    "admin_username": "ghalmiahmednoureddine@gmail.com",
+    "request_data": {
+      "student_id": 1,
+      "class_id": 71,
+      "status": "present",
+      "course_type": "monthly",
+      "date": "2025-10-03",
+      "add_as_absent": false,
+      "force": true,
+      "payment_status": "paid"
+    },
+    "student_id": 1,
+    "class_id": 71,
+    "status": "present",
+    "add_as_absent": false,
+    "force_attendance": true,
+    "student_name": "AHMED GHALMI",
+    "class_name": "Group1",
+    "course_name": "\u0634\u0639\u0628\u0629 \u0644\u063a\u0627\u062a - \u0627\u0633\u0628\u0627\u0646\u064a\u0629",
+    "course_type": "session",
+    "attendance_date": "2025-10-03",
+    "class_schedule": {
+      "start_time": "09:00",
+      "end_time": "TBD",
+      "day": "Tuesday"
+    },
+    "time_check": {
+      "forced": true,
+      "admin_override": true,
+      "message": "Time restrictions bypassed by admin"
+    },
+    "operation_type": "create",
+    "end_time": "2025-10-03T20:22:29.911268",
+    "duration_seconds": 0.821046,
+    "exception_type": "UnboundLocalError",
+    "exception_message": "local variable 'is_kindergarten_class' referenced before assignment",
+    "final_status": "ERROR"
+  },
+  "error": "local variable 'is_kindergarten_class' referenced before assignment"
+}

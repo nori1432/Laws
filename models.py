@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, date
 import re
 
 db = SQLAlchemy()
@@ -119,8 +119,8 @@ class Course(db.Model):
     monthly_price = db.Column(db.Numeric(10, 2))  # Monthly price in DA (for monthly pricing)
     session_price = db.Column(db.Numeric(10, 2))  # Per session price in DA (for session pricing)
 
-    # Kindergarten (روضة) support - separate handling for subscription-based courses
-    is_kindergarten = db.Column(db.Boolean, default=False, nullable=False)  # Flag for روضة courses
+    # Kindergarten support
+    is_kindergarten = db.Column(db.Boolean, default=False)  # Flag to identify kindergarten courses
 
     # Relationships
     registrations = db.relationship('Registration', back_populates='course', lazy=True)
@@ -201,16 +201,15 @@ class Class(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     course_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False)
     name = db.Column(db.String(200), nullable=False)
-    day_of_week = db.Column(db.Integer, nullable=True)  # 0=Monday, 6=Sunday (nullable for روضة multi-day)
+    day_of_week = db.Column(db.Integer, nullable=True)  # 0=Monday, 6=Sunday. NULL for kindergarten multi-day classes
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
     max_students = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Multi-day schedule support for kindergarten (روضة) courses
-    # JSON array of day integers: e.g., "[0, 2, 4]" for Mon, Wed, Fri
-    multi_day_schedule = db.Column(db.Text, nullable=True)  # JSON string for multiple days
+    # Kindergarten multi-day schedule support
+    multi_day_schedule = db.Column(db.Text, nullable=True)  # JSON array of day integers for multi-day schedules, e.g., "[0,2,4]" for Mon/Wed/Fri
 
     # QR Code for attendance
     qr_code_data = db.Column(db.String(255))  # Unique identifier for QR code
@@ -223,21 +222,30 @@ class Class(db.Model):
 
     @property
     def schedule(self):
-        """Generate schedule string from day_of_week or multi_day_schedule, start_time, end_time"""
-        # Handle multi-day schedule for kindergarten (روضة)
+        """Generate schedule string from day_of_week, start_time, end_time, or multi_day_schedule"""
+        import json
+        
+        # Handle kindergarten multi-day schedules
         if self.multi_day_schedule:
             try:
-                import json
                 days_list = json.loads(self.multi_day_schedule)
-                days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-                day_names = [days[day] for day in days_list if 0 <= day < len(days)]
-                start_str = self.start_time.strftime('%H:%M') if self.start_time else '00:00'
-                end_str = self.end_time.strftime('%H:%M') if self.end_time else '00:00'
-                return f"{', '.join(day_names)} {start_str}-{end_str}"
-            except:
+                if days_list and isinstance(days_list, list):
+                    # Use abbreviated day names to match backend mapping (Monday=0, Sunday=6)
+                    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                    day_names = []
+                    for day_idx in days_list:
+                        if isinstance(day_idx, int) and 0 <= day_idx < len(days):
+                            day_names.append(days[day_idx])
+                    
+                    if day_names:
+                        start_str = self.start_time.strftime('%H:%M') if self.start_time else '00:00'
+                        end_str = self.end_time.strftime('%H:%M') if self.end_time else '00:00'
+                        days_str = '/'.join(day_names)
+                        return f"{days_str} {start_str}-{end_str}"
+            except (json.JSONDecodeError, TypeError):
                 pass
         
-        # Handle single day schedule (regular courses)
+        # Handle regular single-day schedules
         if self.day_of_week is not None and self.day_of_week != -1 and self.start_time and self.end_time:
             # Use abbreviated day names to match backend mapping (Monday=0, Sunday=6)
             days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -279,16 +287,16 @@ class Enrollment(db.Model):
     last_payment_date = db.Column(db.DateTime)
     next_payment_due = db.Column(db.DateTime)
 
-    # Kindergarten (روضة) subscription tracking - independent from attendance
-    is_kindergarten_subscription = db.Column(db.Boolean, default=False, nullable=False)  # Flag for subscription type
-    subscription_start_date = db.Column(db.Date, nullable=True)  # Date subscription started (e.g., Sept 21)
-    next_subscription_date = db.Column(db.Date, nullable=True)  # Next payment due date (e.g., Oct 21)
-    subscription_status = db.Column(db.Enum('active', 'pending', 'expired'), default='pending')  # Subscription status
-    subscription_amount = db.Column(db.Numeric(10, 2), nullable=True)  # Monthly subscription amount
-
     # Debt tracking
     total_debt = db.Column(db.Numeric(10, 2), default=0)  # Total outstanding debt
     debt_sessions = db.Column(db.Integer, default=0)  # Number of unpaid sessions
+
+    # Kindergarten subscription support
+    is_kindergarten_subscription = db.Column(db.Boolean, default=False)  # Flag for kindergarten subscription-based enrollments
+    subscription_start_date = db.Column(db.Date, nullable=True)  # Date when subscription started
+    next_subscription_date = db.Column(db.Date, nullable=True)  # Next payment due date
+    subscription_status = db.Column(db.Enum('active', 'pending', 'expired'), default='pending')  # Current subscription status
+    subscription_amount = db.Column(db.Numeric(10, 2), nullable=True)  # Monthly subscription amount
 
     # Relationships
     student = db.relationship('Student', back_populates='enrollments', lazy=True)
@@ -303,6 +311,10 @@ class Enrollment(db.Model):
     @property
     def progress_percentage(self):
         """Get progress percentage for monthly payments (0-100)"""
+        # Kindergarten subscriptions don't use attendance-based progress
+        if self.is_kindergarten_subscription:
+            return 100  # Always 100% for subscription-based
+        
         if self.payment_type == 'monthly':
             # Handle None value for monthly_sessions_attended
             sessions_attended = self.monthly_sessions_attended or 0
@@ -311,7 +323,18 @@ class Enrollment(db.Model):
 
     @property
     def payment_status_display(self):
-        """Get simple payment status display - attendance-based only"""
+        """Get simple payment status display"""
+        # Kindergarten subscriptions use subscription status
+        if self.is_kindergarten_subscription:
+            if self.subscription_status == 'active':
+                return 'Subscription Active'
+            elif self.subscription_status == 'pending':
+                return 'Subscription Pending'
+            elif self.subscription_status == 'expired':
+                return 'Subscription Expired'
+            return 'Subscription Status Unknown'
+        
+        # Regular attendance-based payments
         if self.payment_type == 'monthly':
             if (self.monthly_sessions_attended or 0) >= 4 and self.monthly_payment_status != 'paid':
                 return f'Monthly Payment Due ({self.monthly_sessions_attended or 0}/4 sessions)'
@@ -322,21 +345,31 @@ class Enrollment(db.Model):
 
     @property
     def is_payment_required(self):
-        """Check if payment is currently required - attendance-based only"""
+        """Check if payment is currently required"""
+        # Kindergarten subscriptions check subscription dates
+        if self.is_kindergarten_subscription:
+            if self.subscription_status == 'expired' and self.next_subscription_date:
+                return self.next_subscription_date <= date.today()
+            return False
+        
+        # Regular attendance-based payments
         if self.payment_type == 'monthly':
             return ((self.monthly_sessions_attended or 0) >= 4 and self.monthly_payment_status != 'paid')
         return False  # Session payments are handled per attendance
 
     @property
     def total_unpaid_amount(self):
-        """Calculate total unpaid amount for this enrollment - attendance-based only"""
+        """Calculate total unpaid amount for this enrollment"""
         course = self.course
         if not course:
             return 0.0
             
-        total = 0.0
+        # Kindergarten subscriptions use subscription amount
+        if self.is_kindergarten_subscription:
+            return float(self.subscription_amount or course.monthly_price or course.price or 0)
         
-        # Monthly payment (if applicable)
+        # Regular attendance-based payments
+        total = 0.0
         if self.payment_type == 'monthly' and (self.monthly_sessions_attended or 0) >= 4 and self.monthly_payment_status != 'paid':
             if course.pricing_type == 'monthly' and course.monthly_price:
                 total += float(course.monthly_price)
@@ -350,12 +383,14 @@ class Enrollment(db.Model):
     @property
     def is_payment_overdue(self):
         """Check if payment is overdue"""
-        # For now, consider overdue if payment is required
         return self.is_payment_required
 
     @property
     def sessions_this_month(self):
         """Get sessions attended this month"""
+        # Kindergarten subscriptions don't track monthly sessions
+        if self.is_kindergarten_subscription:
+            return 0
         return self.monthly_sessions_attended
 
 class Attendance(db.Model):
@@ -373,13 +408,13 @@ class Attendance(db.Model):
     qr_code_scanned = db.Column(db.Boolean, default=False)
     qr_scan_time = db.Column(db.DateTime)
 
-    # Payment tracking for session-based payments (NOT used for kindergarten subscription courses)
+    # Payment tracking for session-based payments
     payment_status = db.Column(db.Enum('paid', 'unpaid', 'debt'), default='unpaid')  # paid, unpaid, debt
     payment_amount = db.Column(db.Numeric(10, 2))  # Amount paid for this session
     payment_date = db.Column(db.DateTime)  # When payment was collected
 
-    # Kindergarten flag - attendance without payment coupling
-    is_kindergarten_attendance = db.Column(db.Boolean, default=False, nullable=False)  # Flag for روضة attendance
+    # Kindergarten attendance support
+    is_kindergarten_attendance = db.Column(db.Boolean, default=False)  # Flag for kindergarten attendance (no payment coupling)
 
     # Relationships
     student = db.relationship('Student', back_populates='attendances', lazy=True)
@@ -552,7 +587,6 @@ def course_to_dict(course):
         'category': course.category,
         'image_url': course.image_url,
         'is_active': course.is_active,
-        'is_kindergarten': course.is_kindergarten,
         'created_at': course.created_at.isoformat() if course.created_at else None,
         'updated_at': course.updated_at.isoformat() if course.updated_at else None
     }
@@ -577,7 +611,6 @@ def class_to_dict(class_obj):
         'course_id': class_obj.course_id,
         'name': class_obj.name,
         'day_of_week': class_obj.day_of_week,
-        'multi_day_schedule': class_obj.multi_day_schedule,
         'start_time': class_obj.start_time.strftime('%H:%M') if class_obj.start_time else None,
         'end_time': class_obj.end_time.strftime('%H:%M') if class_obj.end_time else None,
         'max_students': class_obj.max_students,
@@ -594,12 +627,7 @@ def enrollment_to_dict(enrollment):
         'student_id': enrollment.student_id,
         'class_id': enrollment.class_id,
         'enrollment_date': enrollment.enrollment_date.isoformat() if enrollment.enrollment_date else None,
-        'is_active': enrollment.is_active,
-        'is_kindergarten_subscription': enrollment.is_kindergarten_subscription,
-        'subscription_start_date': enrollment.subscription_start_date.isoformat() if enrollment.subscription_start_date else None,
-        'next_subscription_date': enrollment.next_subscription_date.isoformat() if enrollment.next_subscription_date else None,
-        'subscription_status': enrollment.subscription_status,
-        'subscription_amount': float(enrollment.subscription_amount) if enrollment.subscription_amount else None
+        'is_active': enrollment.is_active
     }
 
 def attendance_to_dict(attendance):
@@ -614,7 +642,7 @@ def attendance_to_dict(attendance):
         'marked_at': attendance.marked_at.isoformat() if attendance.marked_at else None,
         'qr_code_scanned': attendance.qr_code_scanned,
         'qr_scan_time': attendance.qr_scan_time.isoformat() if attendance.qr_scan_time else None,
-        'is_kindergarten_attendance': attendance.is_kindergarten_attendance
+        'device_info': attendance.device_info
     }
 
 def payment_to_dict(payment):
