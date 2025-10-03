@@ -36,7 +36,9 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
-  Smartphone
+  Smartphone,
+  Download,
+  Key
 } from 'lucide-react';
 
 interface Registration {
@@ -1022,7 +1024,18 @@ const Dashboard: React.FC = () => {
                                 {payment.unpaid_amount > 0 && (
                                   <p className="text-red-600 font-medium">{t('owedLabel')}: {payment.unpaid_amount} DA</p>
                                 )}
-                                {payment.payment_type === 'monthly' && (
+                                {payment.is_kindergarten ? (
+                                  <div className="space-y-1">
+                                    <p className="flex items-center gap-1">
+                                      <span>🧸</span>
+                                      <span className="font-medium text-purple-600">Kindergarten Subscription</span>
+                                    </p>
+                                    <p>{payment.sessions_this_month || 0} Days Present This Month</p>
+                                    {payment.next_payment_date && (
+                                      <p className="text-purple-700 font-medium">Next Payment: {new Date(payment.next_payment_date).toLocaleDateString()}</p>
+                                    )}
+                                  </div>
+                                ) : payment.payment_type === 'monthly' && (
                                   <p>{t('sessionsLabel')}: {payment.sessions_this_month}/4 {t('thisMonth')}</p>
                                 )}
                                 {payment.is_overdue && (
@@ -1260,7 +1273,21 @@ const Dashboard: React.FC = () => {
                                       </td>
                                       <td className="px-4 py-4">
                                         <div className="space-y-1">
-                                          {enrollment.payment_type === 'monthly' ? (
+                                          {enrollment.is_kindergarten ? (
+                                            <div className="space-y-1">
+                                              <div className="flex items-center gap-1 text-sm">
+                                                <span>🧸</span>
+                                                <span className="font-semibold text-purple-700">
+                                                  {enrollment.monthly_sessions_attended || 0} Days
+                                                </span>
+                                              </div>
+                                              {enrollment.next_subscription_date && (
+                                                <div className="text-xs text-purple-600">
+                                                  Until: {new Date(enrollment.next_subscription_date).toLocaleDateString()}
+                                                </div>
+                                              )}
+                                            </div>
+                                          ) : enrollment.payment_type === 'monthly' ? (
                                             <div className="flex items-center space-x-2">
                                               <span className="text-sm text-foreground">
                                                 {enrollment.sessions_this_month || 0}/4
@@ -2057,7 +2084,38 @@ const Dashboard: React.FC = () => {
                           </div>
                         </div>
 
-                        {enrollment.payment_type === 'monthly' && (
+                        {enrollment.is_kindergarten ? (
+                          <div className="mt-3 pt-3 border-t border-purple-200 bg-purple-50/50 rounded-lg p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-lg">🧸</span>
+                              <span className="font-semibold text-purple-700">Kindergarten Subscription</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="flex justify-between items-center py-1">
+                                <span className="text-sm text-purple-600">Days This Month</span>
+                                <span className="font-bold text-purple-800">{enrollment.monthly_sessions_attended || 0}</span>
+                              </div>
+                              <div className="flex justify-between items-center py-1">
+                                <span className="text-sm text-purple-600">Attendance Rate</span>
+                                <span className="font-bold text-purple-800">{enrollment.attendance_rate || 0}%</span>
+                              </div>
+                              <div className="flex justify-between items-center py-1">
+                                <span className="text-sm text-purple-600">Next Payment</span>
+                                <span className="font-semibold text-purple-800">
+                                  {enrollment.next_subscription_date ? new Date(enrollment.next_subscription_date).toLocaleDateString() : 'Not Set'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center py-1">
+                                <span className="text-sm text-purple-600">Status</span>
+                                <span className={`font-semibold px-2 py-1 rounded-full text-xs ${
+                                  enrollment.subscription_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {enrollment.subscription_status || 'Active'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : enrollment.payment_type === 'monthly' && (
                           <div className="mt-3 pt-3 border-t border-border">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <div className="flex justify-between items-center py-1">
@@ -2129,12 +2187,43 @@ const Dashboard: React.FC = () => {
                           </p>
                         </div>
                       ) : (
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
-                            {language === 'ar' 
-                              ? '💡 سيتم إنشاء بيانات الدخول تلقائياً بمجرد استيفاء جميع المتطلبات للطلاب'
-                              : '💡 Parent credentials will be generated automatically once student requirements are met'}
-                          </p>
+                        <div className="space-y-3">
+                          {/* Check if at least one student has credentials */}
+                          {credentialsEligibility?.students?.some((s: any) => s.has_credentials) ? (
+                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                              <p className="text-sm text-green-800 dark:text-green-200 mb-3">
+                                ✅ {language === 'ar' 
+                                  ? 'يمكنك الآن إنشاء بيانات دخول ولي الأمر!'
+                                  : 'You can now generate parent credentials!'}
+                              </p>
+                              <button
+                                onClick={() => handleGenerateCredentials()}
+                                disabled={isGeneratingCredentials[0]}
+                                className="w-full bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                type="button"
+                              >
+                                {isGeneratingCredentials[0] ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                    {language === 'ar' ? 'جاري الإنشاء...' : 'Generating...'}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Key className="w-4 h-4" />
+                                    {language === 'ar' ? 'إنشاء بيانات الدخول' : 'Generate Credentials'}
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                              <p className="text-sm text-blue-800 dark:text-blue-200">
+                                {language === 'ar' 
+                                  ? '💡 سيتم إنشاء بيانات الدخول بمجرد إنشاء بيانات دخول أحد الطلاب'
+                                  : '💡 Parent credentials can be generated once at least one student has mobile credentials'}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -2299,8 +2388,8 @@ const Dashboard: React.FC = () => {
                                       <span>❌</span>
                                       <span>
                                         {language === 'ar' 
-                                          ? 'يجب إكمال معلومات ولي الأمر (الاسم، الهاتف، البريد الإلكتروني)'
-                                          : 'Parent information must be complete (name, phone, email)'}
+                                          ? 'يجب إكمال معلومات ولي الأمر (الاسم والهاتف)'
+                                          : 'Parent information must be complete (name and phone)'}
                                       </span>
                                     </li>
                                   )}
@@ -2335,6 +2424,35 @@ const Dashboard: React.FC = () => {
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {/* Mobile App Download Button */}
+                  {((credentialsEligibility?.parent?.has_credentials) || 
+                    (credentialsEligibility?.students?.some((s: any) => s.has_credentials))) && (
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="font-semibold text-foreground flex items-center">
+                            <Smartphone className="w-5 h-5 mr-2 text-blue-600" />
+                            {language === 'ar' ? '📱 تحميل التطبيق' : '📱 Download Mobile App'}
+                          </h4>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {language === 'ar' 
+                              ? 'احصل على تطبيق الجوال لمتابعة الحضور والدفعات' 
+                              : 'Get the mobile app to track attendance and payments'}
+                          </p>
+                        </div>
+                      </div>
+                      <a
+                        href="https://www.mediafire.com/file/2xebeh44qyut0ko/LawsOfSuccess.apk/file"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2 font-medium shadow-md"
+                      >
+                        <Download className="w-5 h-5" />
+                        {language === 'ar' ? 'تحميل التطبيق الآن' : 'Download App Now'}
+                      </a>
                     </div>
                   )}
 

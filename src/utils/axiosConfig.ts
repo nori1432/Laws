@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Configure axios globally
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'https://lawsofsuccess.live';
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 axios.defaults.withCredentials = false; // Explicitly set to false for CORS compatibility
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 axios.defaults.headers.common['Accept'] = 'application/json';
@@ -51,6 +51,5 @@ console.log('🔧 Axios configured globally:', {
   withCredentials: axios.defaults.withCredentials,
   interceptors: 'request/response interceptors added'
 });
-
 
 // No export needed - this just configures the global axios instance

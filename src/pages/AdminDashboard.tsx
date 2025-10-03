@@ -54,7 +54,8 @@ import {
   AlertCircle,
   CheckCircle,
   Search,
-  Languages
+  Languages,
+  Info
 } from 'lucide-react';
 import AttendanceOverview from '../components/AttendanceOverview';
 
@@ -130,16 +131,27 @@ interface Course {
 interface CourseSection {
   id: number;
   course_id: number;
+  name?: string;
   section_name: string;
   schedule: string;
+  multi_day_schedule?: string | null;
   start_date: string | null;
   end_date: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   max_students: number;
   current_students: number;
+  enrolled_students?: number;
   is_active: boolean;
   created_at: string;
   course_name?: string;
   course_category?: string;
+  course?: {
+    id: number;
+    name: string;
+    category: string;
+    is_active: boolean;
+  };
 }
 
 interface User {
@@ -259,10 +271,6 @@ interface StudentCardProps {
   onDelete: () => void;
   onToggleMobile: () => void;
   onViewDetails: () => void;
-  onMarkPresent: (classId: number) => void;
-  onMarkAbsent: (classId: number, addAsAbsent?: boolean) => void;
-  onRemoveSession: (classId: number) => void;
-  markingAttendance: boolean;
   selectedSection: string;
 }
 
@@ -272,10 +280,6 @@ const StudentCard: React.FC<StudentCardProps> = ({
   onDelete,
   onToggleMobile,
   onViewDetails,
-  onMarkPresent,
-  onMarkAbsent,
-  onRemoveSession,
-  markingAttendance,
   selectedSection
 }) => {
   // Calculate payment status
@@ -433,8 +437,36 @@ const StudentCard: React.FC<StudentCardProps> = ({
         )}
       </div>
 
-      {/* Attendance Progress Section - Monthly Courses Only */}
-      {student.payment_status && student.payment_status.some((p: any) => p.type === 'monthly') && (
+      {/* Attendance Progress Section - Check if Kindergarten or Monthly Course */}
+      {student.enrollment_info?.courses?.some((c: any) => c.is_kindergarten) ? (
+        <div className="bg-gradient-to-br from-purple-50 to-pink-100 border border-purple-200 rounded-lg p-3 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <span className="text-lg">🧸</span>
+              <span className="text-sm font-medium text-purple-700">Kindergarten Subscription</span>
+            </div>
+            <span className="text-xs px-2 py-1 bg-purple-600 text-white rounded-full font-semibold">
+              Monthly Attendance Tracking
+            </span>
+          </div>
+          
+          {/* Attendance Rate Display for Kindergarten */}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-purple-600 font-medium">This Month:</span>
+            <span className="text-purple-800 font-bold">
+              {((student as any).attendance_stats as any)?.monthly_sessions_attended || 0} Days Present
+            </span>
+          </div>
+          
+          {/* Payment Status */}
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span className="text-purple-600">Next Payment:</span>
+            <span className="text-purple-800 font-semibold">
+              {student.enrollment_info?.courses?.find((c: any) => c.is_kindergarten)?.next_subscription_date || 'Not Set'}
+            </span>
+          </div>
+        </div>
+      ) : student.payment_status && student.payment_status.some((p: any) => p.type === 'monthly') ? (
         <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-lg p-3 mb-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">
@@ -489,13 +521,13 @@ const StudentCard: React.FC<StudentCardProps> = ({
             </div>
           )}
         </div>
-      )}
+      ) : null}
 
-      {/* Attendance Actions - Show for all enrollments */}
+      {/* Course Enrollment Display - Read-only */}
       {(student as any).enrollments && (student as any).enrollments.length > 0 && (
         <div className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-lg p-3 mb-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-slate-700">Quick Attendance Actions</span>
+            <span className="text-sm font-medium text-slate-700">Current Enrollments</span>
             <span className="text-xs text-slate-500">
               {(student as any).enrollments.length} Course{(student as any).enrollments.length !== 1 ? 's' : ''}
             </span>
@@ -503,89 +535,41 @@ const StudentCard: React.FC<StudentCardProps> = ({
           
           <div className="space-y-3">
             {(student as any).enrollments.map((enrollment: any, index: number) => (
-              <div key={index} className="border border-slate-200 rounded-lg p-3 bg-white/50">
-                <div className="flex items-center justify-between mb-2">
+              <div key={index} className={`border rounded-lg p-3 ${
+                enrollment.is_kindergarten 
+                  ? 'border-pink-300 bg-gradient-to-br from-pink-50 to-purple-50' 
+                  : 'border-slate-200 bg-white/50'
+              }`}>
+                <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-600 truncate">
+                    {enrollment.is_kindergarten && '🧸 '}
                     {enrollment.course_name}
                   </span>
                   <div className="flex items-center space-x-2">
-                    {(enrollment.total_debt || 0) > 0 && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-bold rounded bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm animate-pulse">
-                        💰 {enrollment.total_debt} DA
-                        {enrollment.debt_sessions && enrollment.debt_sessions > 0 && (
-                          <span className="ml-1 opacity-90">({enrollment.debt_sessions} sessions)</span>
-                        )}
+                    {enrollment.is_kindergarten ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-bold rounded bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-sm">
+                        🧸 Kindergarten
                       </span>
+                    ) : (
+                      <>
+                        {(enrollment.total_debt || 0) > 0 && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-bold rounded bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm">
+                            💰 {enrollment.total_debt} DA
+                            {enrollment.debt_sessions && enrollment.debt_sessions > 0 && (
+                              <span className="ml-1 opacity-90">({enrollment.debt_sessions} sessions)</span>
+                            )}
+                          </span>
+                        )}
+                        <span className={`inline-flex items-center px-1.5 py-0.5 text-xs font-bold rounded ${
+                          (enrollment.pricing_type || 'session') === 'monthly' 
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {(enrollment.pricing_type || 'session') === 'monthly' ? 'Monthly' : 'Session'}
+                        </span>
+                      </>
                     )}
-                    <span className={`inline-flex items-center px-1.5 py-0.5 text-xs font-bold rounded ${
-                      (enrollment.pricing_type || 'session') === 'monthly' 
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {(enrollment.pricing_type || 'session') === 'monthly' ? 'Monthly' : 'Session'}
-                    </span>
                   </div>
-                </div>
-                
-                <div className="flex space-x-1">
-                  {(enrollment.pricing_type || 'session') === 'monthly' ? (
-                    <>
-                      <button
-                        onClick={() => {
-                          onMarkPresent(enrollment.section_id);
-                        }}
-                        disabled={markingAttendance || (enrollment.monthly_sessions_attended || 0) >= 4}
-                        className="flex-1 px-2 py-1.5 text-xs bg-gradient-to-r from-green-500/10 to-green-500/20 text-green-700 rounded hover:from-green-500/20 hover:to-green-500/30 transition-all duration-300 border border-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <CheckCircle className="w-3 h-3 inline mr-1" />
-                        Present
-                      </button>
-                      <button
-                        onClick={() => {
-                          onMarkAbsent(enrollment.section_id, true); // true indicates add as absent
-                        }}
-                        disabled={markingAttendance || (enrollment.monthly_sessions_attended || 0) >= 4}
-                        className="flex-1 px-2 py-1.5 text-xs bg-gradient-to-r from-red-500/10 to-red-500/20 text-red-700 rounded hover:from-red-500/20 hover:to-red-500/30 transition-all duration-300 border border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <XCircle className="w-3 h-3 inline mr-1" />
-                        Absent
-                      </button>
-                      <button
-                        onClick={() => {
-                          onRemoveSession(enrollment.section_id);
-                        }}
-                        disabled={markingAttendance || (enrollment.monthly_sessions_attended || 0) <= 0}
-                        className="px-2 py-1.5 text-xs bg-gradient-to-r from-orange-500/10 to-orange-500/20 text-orange-700 rounded hover:from-orange-500/20 hover:to-orange-500/30 transition-all duration-300 border border-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Remove Last Session"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                    </>
-                  ) : (
-                    // Session-based course actions
-                    <>
-                      <button
-                        onClick={() => {
-                          onMarkPresent(enrollment.section_id);
-                        }}
-                        disabled={markingAttendance}
-                        className="flex-1 px-2 py-1.5 text-xs bg-gradient-to-r from-green-500/10 to-green-500/20 text-green-700 rounded hover:from-green-500/20 hover:to-green-500/30 transition-all duration-300 border border-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <CheckCircle className="w-3 h-3 inline mr-1" />
-                        Present
-                      </button>
-                      <button
-                        onClick={() => {
-                          onMarkAbsent(enrollment.section_id);
-                        }}
-                        disabled={markingAttendance}
-                        className="flex-1 px-2 py-1.5 text-xs bg-gradient-to-r from-red-500/10 to-red-500/20 text-red-700 rounded hover:from-red-500/20 hover:to-red-500/30 transition-all duration-300 border border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <XCircle className="w-3 h-3 inline mr-1" />
-                        Absent
-                      </button>
-                    </>
-                  )}
                 </div>
               </div>
             ))}
@@ -704,12 +688,17 @@ const AdminDashboard: React.FC = () => {
   const [lastActiveSessionsUpdate, setLastActiveSessionsUpdate] = useState<number>(0);
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [selectedCourseForSections, setSelectedCourseForSections] = useState<Course | null>(null);
+  const [editingSection, setEditingSection] = useState<CourseSection | null>(null);
   const [sectionForm, setSectionForm] = useState({
     section_name: '',
     schedule: '',
+    day_of_week: '',
     start_date: '',
     end_date: '',
+    start_time: '',
+    end_time: '',
     max_students: '',
+    multi_day_schedule: null as string | null,
     is_active: true
   });
   const [users, setUsers] = useState<User[]>([]);
@@ -805,6 +794,13 @@ const AdminDashboard: React.FC = () => {
   // Debt Clearance Modal States
   const [showDebtClearanceModal, setShowDebtClearanceModal] = useState(false);
   const [debtClearanceData, setDebtClearanceData] = useState<any>(null);
+
+  // Kindergarten Management States
+  const [selectedKindergartenView, setSelectedKindergartenView] = useState<'all' | 'active' | 'pending' | 'expired'>('all');
+  const [selectedKindergartenEnrollment, setSelectedKindergartenEnrollment] = useState<any>(null);
+  const [showKindergartenDetailModal, setShowKindergartenDetailModal] = useState(false);
+  const [showKindergartenAttendanceModal, setShowKindergartenAttendanceModal] = useState(false);
+  const [showKindergartenPaymentModal, setShowKindergartenPaymentModal] = useState(false);
   
   // Test modal visibility with a simple state
   const [testModalVisible, setTestModalVisible] = useState(false);
@@ -1192,20 +1188,11 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleUpdatePaymentStatus = async (registrationId: number, paymentStatus: string) => {
-    try {
-      await axios.post(`/api/admin/registrations/${registrationId}/payment-status`, {
-        payment_status: paymentStatus
-      });
-      toast.success(`Payment status updated to ${paymentStatus}`);
-      fetchDashboardData();
-    } catch (error: any) {
-      if (error.response?.data?.error) {
-        toast.error(error.response.data.error);
-      } else {
-        toast.error('Failed to update payment status');
-      }
-    }
+  // handleUpdatePaymentStatus function removed - actions disabled in read-only mode
+  // Payment data can be viewed but not modified
+  const handleUpdatePaymentStatus_DISABLED = async (registrationId: number, paymentStatus: string) => {
+    toast.info('Payment status updates are disabled - Dashboard is in read-only mode for payment management');
+    return;
   };
 
   const handleRejectRegistration = (registrationId: number) => {
@@ -1478,9 +1465,13 @@ const AdminDashboard: React.FC = () => {
       setSectionForm({
         section_name: '',
         schedule: '',
+        day_of_week: '',
         start_date: '',
         end_date: '',
+        start_time: '',
+        end_time: '',
         max_students: '',
+        multi_day_schedule: null,
         is_active: true
       });
     } catch (error: any) {
@@ -1551,6 +1542,20 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleEditSection = (section: CourseSection) => {
+    setEditingSection(section);
+    setSectionForm({
+      section_name: section.section_name || section.name || '',
+      day_of_week: '', // Will be handled by multi-day schedule
+      start_time: section.start_time || section.start_date || '',
+      end_time: section.end_time || section.end_date || '',
+      max_students: section.max_students.toString(),
+      multi_day_schedule: section.multi_day_schedule || null,
+      is_active: section.is_active
+    });
+    setShowSectionModal(true);
+  };
+
   const handleSectionUpdate = async (section: CourseSection) => {
     try {
       await axios.put(`/api/courses/sections/${section.id}`, section);
@@ -1589,23 +1594,7 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleProcessPayment = async (enrollmentId: number, amount: number, paymentType: string) => {
-    try {
-      setProcessingPayment(enrollmentId);
-      await axios.post(`/api/payments/enrollment/${enrollmentId}/pay`, {
-        amount: amount,
-        payment_method: 'cash',
-        payment_type: paymentType
-      });
-
-      toast.success('Payment processed successfully');
-      await fetchPendingPayments(); // Refresh the payment lists
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to process payment');
-    } finally {
-      setProcessingPayment(null);
-    }
-  };
+  // Payment processing function removed - Admin dashboard is read-only for payments
 
   // Payment filtering and sorting functions
   const filterPayments = (payments: any[], type: string) => {
@@ -1649,56 +1638,7 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
-  const handleBulkPaymentProcess = async () => {
-    if (selectedPayments.size === 0) {
-      toast.error('Please select payments to process');
-      return;
-    }
-
-    try {
-      const promises = Array.from(selectedPayments).map(async (paymentKey) => {
-        const [type, idStr] = paymentKey.split('-');
-        const id = parseInt(idStr);
-
-        const payment = [...filteredPendingPayments, ...filteredMonthlyPaymentsDue]
-          .find(p => (type === 'session' ? p.attendance_id : p.enrollment_id) === id);
-
-        if (payment) {
-          return handleProcessPayment(id, payment.amount_due, type);
-        }
-      });
-
-      await Promise.all(promises);
-      setSelectedPayments(new Set());
-      toast.success(`Processed ${selectedPayments.size} payments successfully`);
-    } catch (error) {
-      toast.error('Failed to process some payments');
-    }
-  };
-
-  const handlePaymentSelection = (paymentId: string, checked: boolean) => {
-    const newSelected = new Set(selectedPayments);
-    if (checked) {
-      newSelected.add(paymentId);
-    } else {
-      newSelected.delete(paymentId);
-    }
-    setSelectedPayments(newSelected);
-  };
-
-  const handleSelectAllPayments = (payments: any[], checked: boolean, type: string) => {
-    const newSelected = new Set(selectedPayments);
-    payments.forEach(payment => {
-      const id = type === 'session' ? payment.attendance_id : payment.enrollment_id;
-      const key = `${type}-${id}`;
-      if (checked) {
-        newSelected.add(key);
-      } else {
-        newSelected.delete(key);
-      }
-    });
-    setSelectedPayments(newSelected);
-  };
+  // Bulk payment processing functions removed - Admin dashboard shows payment data only
 
   const fetchPaymentHistory = async () => {
     try {
@@ -2546,72 +2486,7 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleAutoMarkAbsent = async () => {
-    try {
-      setProcessingBulkAction(true);
-      const response = await axios.post('/api/admin/attendance/auto-mark-absent');
-      
-      if (response.data.total_students_marked > 0) {
-        toast.success(`Successfully marked ${response.data.total_students_marked} students as absent for ended classes`);
-        
-        // Show details if available
-        if (response.data.processed_classes.length > 0) {
-          const classDetails = response.data.processed_classes
-            .map(cls => `${cls.course_name} (${cls.class_time}): ${cls.students_marked_absent} students`)
-            .join('\n');
-          
-          setTimeout(() => {
-            toast.info(`Classes processed:\n${classDetails}`, { duration: 8000 });
-          }, 1000);
-        }
-      } else {
-        toast.info('No students needed to be marked absent - all current students already have attendance recorded');
-      }
-      
-      await fetchStudentsTableData();
-    } catch (error: any) {
-      console.error('Error auto-marking absent:', error);
-      toast.error(error.response?.data?.error || 'Failed to auto-mark students absent');
-    } finally {
-      setProcessingBulkAction(false);
-    }
-  };
-
-  // Background Auto-Absent Logic
-  const runBackgroundAutoAbsent = async () => {
-    try {
-      // Silent background check - no UI feedback
-      const response = await axios.post('/api/admin/attendance/auto-mark-absent');
-      
-      if (response.data.total_students_marked > 0) {
-        console.log(`Background auto-absent: Marked ${response.data.total_students_marked} students as absent`);
-        
-        // Show subtle notification only if students were marked
-        toast.info(`Auto-marked ${response.data.total_students_marked} student(s) absent for ended classes`, {
-          duration: 4000,
-          position: 'bottom-right'
-        });
-        
-        // Refresh data to show updates
-        await fetchStudentsTableData();
-      }
-    } catch (error: any) {
-      console.error('Background auto-absent error:', error);
-      // Don't show error toasts for background operations to avoid spam
-    }
-  };
-
-  // Background auto-absent service - runs every 2 minutes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      runBackgroundAutoAbsent();
-    }, 2 * 60 * 1000); // 2 minutes
-
-    // Run immediately on component mount
-    runBackgroundAutoAbsent();
-
-    return () => clearInterval(interval);
-  }, []);
+  // Attendance and payment action functions removed - Admin dashboard now displays stats only
 
   const handleRemoveSessionFixed = async (studentId: number, classId: number) => {
     setMarkingAttendance(prev => new Set(prev).add(studentId));
@@ -2698,87 +2573,7 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // Bulk clearing functions
-  const handleBulkClearAttendance = async () => {
-    if (selectedStudents.size === 0) {
-      toast.error('Please select students first');
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to clear attendance for ${selectedStudents.size} students? This action cannot be undone.`)) {
-      return;
-    }
-
-    setProcessingBulkAction(true);
-    try {
-      await axios.post('/api/admin/bulk/clear-attendance', {
-        student_ids: Array.from(selectedStudents)
-      });
-      
-      toast.success(`Attendance cleared for ${selectedStudents.size} students`);
-      setSelectedStudents(new Set());
-      await fetchStudentsTableData();
-    } catch (error) {
-      console.error('Error clearing bulk attendance:', error);
-      toast.error('Failed to clear attendance for some students');
-    } finally {
-      setProcessingBulkAction(false);
-    }
-  };
-
-  const handleBulkClearPayments = async () => {
-    if (selectedStudents.size === 0) {
-      toast.error('Please select students first');
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to clear all payments for ${selectedStudents.size} students? This action cannot be undone.`)) {
-      return;
-    }
-
-    setProcessingBulkAction(true);
-    try {
-      await axios.post('/api/admin/bulk/clear-payments', {
-        student_ids: Array.from(selectedStudents)
-      });
-      
-      toast.success(`Payments cleared for ${selectedStudents.size} students`);
-      setSelectedStudents(new Set());
-      await fetchStudentsTableData();
-    } catch (error) {
-      console.error('Error clearing bulk payments:', error);
-      toast.error('Failed to clear payments for some students');
-    } finally {
-      setProcessingBulkAction(false);
-    }
-  };
-
-  const handleBulkClearBoth = async () => {
-    if (selectedStudents.size === 0) {
-      toast.error('Please select students first');
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to clear BOTH attendance AND payments for ${selectedStudents.size} students? This action cannot be undone.`)) {
-      return;
-    }
-
-    setProcessingBulkAction(true);
-    try {
-      await axios.post('/api/admin/bulk/clear-both', {
-        student_ids: Array.from(selectedStudents)
-      });
-      
-      toast.success(`Attendance and payments cleared for ${selectedStudents.size} students`);
-      setSelectedStudents(new Set());
-      await fetchStudentsTableData();
-    } catch (error) {
-      console.error('Error clearing bulk data:', error);
-      toast.error('Failed to clear data for some students');
-    } finally {
-      setProcessingBulkAction(false);
-    }
-  };
+  // Bulk clearing functions removed - Admin dashboard is now read-only for attendance/payments
 
   const fetchStudentsTableData = async (showLoadingToast = false) => {
     setStudentsLoading(true);
@@ -3040,91 +2835,7 @@ const AdminDashboard: React.FC = () => {
     return currentTime >= allowedStart && currentTime <= allowedEnd;
   };
 
-  // Bulk Action Handlers
-  const handleBulkMarkAttendance = async (isPresent: boolean) => {
-    if (selectedStudents.size === 0) return;
-    
-    const activeSection = currentSessions.find(session => {
-      if (selectedSection === 'all') {
-        return true; // For bulk attendance, we'll use the first active session
-      }
-      return session.id.toString() === selectedSection;
-    });
-    
-    if (!activeSection) {
-      toast.error('No active session found for bulk attendance');
-      return;
-    }
-
-    try {
-      setMarkingAttendance(new Set(selectedStudents));
-      
-      // Use the bulk endpoint instead of individual calls
-      const attendance_records = Array.from(selectedStudents).map(studentId => ({
-        student_id: studentId,
-        status: isPresent ? 'present' : 'absent',
-        notes: ''
-      }));
-
-      await axios.post('/api/admin/attendance/bulk-mark', {
-        class_id: activeSection.id,
-        attendance_records,
-        force: false  // Will show time restriction warnings if needed
-      });
-      
-      toast.success(`${selectedStudents.size} students marked as ${isPresent ? 'present' : 'absent'}`);
-      await fetchStudentsTableData();
-      setSelectedStudents(new Set());
-    } catch (error: any) {
-      console.error('Error marking bulk attendance:', error);
-      
-      // Handle time restriction errors for bulk operations
-      if (error.response?.status === 400 && error.response?.data?.warning_needed) {
-        const errorData = error.response.data;
-        toast.warning(`Time restriction: ${errorData.message}. Use individual marking with force option if needed.`);
-      } else {
-        toast.error('Failed to mark attendance for some students');
-      }
-    } finally {
-      setMarkingAttendance(new Set());
-    }
-  };
-
-  const handleBulkMarkPaid = async () => {
-    if (selectedStudents.size === 0) return;
-
-    try {
-      setProcessingPayments(new Set(selectedStudents));
-      
-      const paymentPromises = Array.from(selectedStudents).map(async (studentId) => {
-        // Get student's unpaid sessions
-        const student = studentsTableData.find(s => s.id === studentId);
-        if (!student?.payment_status) return;
-        
-        const unpaidPayments = student.payment_status.filter((payment: any) => payment.status !== 'paid');
-        
-        return Promise.all(unpaidPayments.map((payment: any) =>
-          axios.post('/api/admin/payments/quick', {
-            student_id: studentId,
-            section_id: payment.section_id,
-            amount: payment.amount,
-            payment_date: new Date().toISOString().split('T')[0]
-          })
-        ));
-      });
-
-      await Promise.all(paymentPromises);
-      
-      toast.success(`Payment recorded for ${selectedStudents.size} students`);
-      await fetchStudentsTableData();
-      setSelectedStudents(new Set());
-    } catch (error) {
-      console.error('Error processing bulk payments:', error);
-      toast.error('Failed to process payments for some students');
-    } finally {
-      setProcessingPayments(new Set());
-    }
-  };
+  // Bulk attendance and payment marking functions removed - Admin dashboard is read-only
 
   const handleBulkSendNotification = async () => {
     if (selectedStudents.size === 0) return;
@@ -3176,10 +2887,10 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // Student management handlers
+  // Student management handlers - DISABLED in read-only mode
   const handleEditStudent = (student: any) => {
-    setEditingStudent(student);
-    setShowStudentModal(true);
+    toast.info('Student editing is disabled - Dashboard is in read-only mode for student management');
+    return;
   };
 
   const handleToggleStudentMobile = async (studentId: number) => {
@@ -3195,41 +2906,11 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  // handleDeleteStudent function removed - actions disabled in read-only mode
+  // Student data can be viewed but not deleted
   const handleDeleteStudent = async (studentId: number) => {
-    const confirmed = confirm('Are you sure you want to delete this student? This will also delete all associated registrations, attendance records, and mobile credentials.');
-    if (!confirmed) return;
-
-    try {
-      setLoading(true);
-      toast.loading('Deleting student and associated records...', { id: 'delete-student' });
-
-      // First, get all associated data for this student
-      const studentResponse = await axios.get(`/api/admin/students/${studentId}`);
-      const student = studentResponse.data;
-
-      // Delete associated mobile credentials if they exist
-      if (student.mobile_credentials?.username) {
-        try {
-          await axios.delete(`/api/admin/mobile-credentials/${studentId}?type=student`);
-        } catch (error) {
-          console.warn('Could not delete mobile credentials:', error);
-        }
-      }
-
-      // Delete the student
-      const response = await axios.delete(`/api/admin/students/${studentId}`);
-      if (response.data.success) {
-        await fetchDashboardData();
-        toast.success('Student and all associated records deleted successfully', { id: 'delete-student' });
-      } else {
-        toast.error('Failed to delete student', { id: 'delete-student' });
-      }
-    } catch (error: any) {
-      console.error('Error deleting student:', error);
-      toast.error('Failed to delete student and associated records', { id: 'delete-student' });
-    } finally {
-      setLoading(false);
-    }
+    toast.info('Student deletion is disabled - Dashboard is in read-only mode for student management');
+    return;
   };
 
   const handleViewStudentDetails = (student: Student) => {
@@ -3626,19 +3307,11 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleUpdateStudent = async (studentId: number, studentData: any) => {
-    try {
-      const response = await axios.put(`/api/admin/students/${studentId}`, studentData);
-      if (response.data.success) {
-        await fetchDashboardData();
-        setShowStudentModal(false);
-        setEditingStudent(null);
-        toast.success('Student updated successfully');
-      }
-    } catch (error) {
-      console.error('Error updating student:', error);
-      toast.error('Failed to update student');
-    }
+  // handleUpdateStudent function removed - actions disabled in read-only mode
+  // Student data can be viewed but not modified
+  const handleUpdateStudent_DISABLED = async (studentId: number, studentData: any) => {
+    toast.info('Student updates are disabled - Dashboard is in read-only mode for student management');
+    return;
   };
 
   // User management handlers
@@ -3759,6 +3432,7 @@ const AdminDashboard: React.FC = () => {
   const tabs = [
     { id: 'people-management', name: 'People Management', icon: Users },
     { id: 'courses', name: t('adminCoursesTab'), icon: BookOpen },
+    { id: 'kindergarten', name: '🧸 Kindergarten', icon: GraduationCap },
     { id: 'schedule-control', name: t('adminScheduleControlTab'), icon: Calendar },
     { id: 'attendance', name: 'Attendance System', icon: UserCheck },
     { id: 'content-management', name: 'Content & Support', icon: FileText },
@@ -4249,13 +3923,6 @@ const AdminDashboard: React.FC = () => {
                           >
                             {studentsViewMode === 'table' ? 'Card View' : 'Table View'}
                           </button>
-                          <button
-                            onClick={() => setShowStudentModal(true)}
-                            className="px-4 py-2 bg-gradient-gold text-secondary rounded-lg hover:shadow-luxury transition-all duration-300"
-                          >
-                            <UserPlus className="w-4 h-4 inline mr-2" />
-                            Add Student
-                          </button>
                         </div>
                       </div>
 
@@ -4524,88 +4191,15 @@ const AdminDashboard: React.FC = () => {
                             </div>
                             
                             <div className="flex flex-wrap items-center gap-3">
-                              {/* Attendance Actions */}
-                              <div className="flex items-center gap-2 p-2 bg-card/50 rounded-lg border border-border/30">
-                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Attendance:</span>
-                                <button
-                                  onClick={() => handleBulkMarkAttendance(true)}
-                                  disabled={markingAttendance.size > 0 || processingBulkAction}
-                                  className="px-3 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 flex items-center gap-1 transition-all duration-200 shadow-sm hover:shadow-md"
-                                >
-                                  <CheckCircle className="w-3 h-3" />
-                                  Present
-                                </button>
-                                <button
-                                  onClick={() => handleBulkMarkAttendance(false)}
-                                  disabled={markingAttendance.size > 0 || processingBulkAction}
-                                  className="px-3 py-2 bg-gradient-to-r from-red-600 to-rose-600 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 flex items-center gap-1 transition-all duration-200 shadow-sm hover:shadow-md"
-                                >
-                                  <XCircle className="w-3 h-3" />
-                                  Absent
-                                </button>
-                                <button
-                                  onClick={handleAutoMarkAbsent}
-                                  disabled={markingAttendance.size > 0 || processingBulkAction}
-                                  className="px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 flex items-center gap-1 transition-all duration-200 shadow-sm hover:shadow-md"
-                                  title="Automatically mark students as absent for ended classes"
-                                >
-                                  <Clock className="w-3 h-3" />
-                                  Auto Absent
-                                </button>
+                              {/* Info message about read-only mode */}
+                              <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                <Info className="w-4 h-4 text-blue-600" />
+                                <span className="text-xs font-medium text-blue-700">
+                                  Dashboard displays attendance & payment statistics only - Actions removed
+                                </span>
                               </div>
 
-                              {/* Payment Actions */}
-                              <div className="flex items-center gap-2 p-2 bg-card/50 rounded-lg border border-border/30">
-                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Payments:</span>
-                                <button
-                                  onClick={() => handleBulkMarkPaid()}
-                                  disabled={processingPayments.size > 0 || processingBulkAction}
-                                  className="px-3 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-xs font-bold rounded-lg hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 flex items-center gap-1 transition-all duration-200 shadow-sm hover:shadow-md"
-                                >
-                                  <CreditCard className="w-3 h-3" />
-                                  Mark Paid
-                                </button>
-                              </div>
-
-                              {/* Clearing Actions */}
-                              <div className="flex items-center gap-2 p-2 bg-orange-50 rounded-lg border border-orange-200">
-                                <span className="text-xs font-semibold text-orange-700 uppercase tracking-wide">Clear:</span>
-                                <button
-                                  onClick={handleBulkClearAttendance}
-                                  disabled={processingBulkAction}
-                                  className="px-3 py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white text-xs font-bold rounded-lg hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 flex items-center gap-1 transition-all duration-200 shadow-sm hover:shadow-md"
-                                >
-                                  {processingBulkAction ? <RefreshCw className="w-3 h-3 animate-spin" /> : <UserCheck className="w-3 h-3" />}
-                                  Attendance
-                                </button>
-                                <button
-                                  onClick={handleBulkClearPayments}
-                                  disabled={processingBulkAction}
-                                  className="px-3 py-2 bg-gradient-to-r from-red-600 to-pink-600 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-pink-700 disabled:opacity-50 flex items-center gap-1 transition-all duration-200 shadow-sm hover:shadow-md"
-                                >
-                                  {processingBulkAction ? <RefreshCw className="w-3 h-3 animate-spin" /> : <DollarSign className="w-3 h-3" />}
-                                  Payments
-                                </button>
-                                <button
-                                  onClick={handleBulkClearBoth}
-                                  disabled={processingBulkAction}
-                                  className="px-3 py-2 bg-gradient-to-r from-gray-700 to-gray-800 text-white text-xs font-bold rounded-lg hover:from-gray-800 hover:to-gray-900 disabled:opacity-50 flex items-center gap-1 transition-all duration-200 shadow-sm hover:shadow-md"
-                                >
-                                  {processingBulkAction ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                                  Both
-                                </button>
-                              </div>
-
-                              {/* Other Actions */}
-                              <button
-                                onClick={() => handleBulkSendNotification()}
-                                disabled={processingBulkAction}
-                                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 flex items-center gap-2 transition-all duration-200 shadow-sm hover:shadow-md"
-                              >
-                                <Bell className="w-3 h-3" />
-                                Notify
-                              </button>
-                              
+                              {/* Clear Selection */}
                               <button
                                 onClick={() => setSelectedStudents(new Set())}
                                 disabled={processingBulkAction}
@@ -4910,8 +4504,72 @@ const AdminDashboard: React.FC = () => {
                                                 </div>
                                               </div>
 
-                                              {/* Monthly Course Progress Display */}
-                                              {(enrollment.pricing_type || 'session') === 'monthly' && (
+                                              {/* Kindergarten Subscription Display */}
+                                              {enrollment.is_kindergarten ? (
+                                                <div className="mb-3 p-3 bg-gradient-to-r from-pink-50 to-purple-50 border border-purple-300 rounded-lg">
+                                                  <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                      <span className="text-xl">🧸</span>
+                                                      <span className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Kindergarten Subscription</span>
+                                                    </div>
+                                                    <span className="px-2 py-1 bg-purple-600 text-white text-xs rounded-full font-bold">
+                                                      {enrollment.subscription_status || 'Active'}
+                                                    </span>
+                                                  </div>
+                                                  
+                                                  {/* Monthly Attendance Count */}
+                                                  <div className="grid grid-cols-2 gap-3 mb-3">
+                                                    <div className="bg-white/60 rounded-lg p-2 text-center">
+                                                      <div className="text-lg font-bold text-purple-700">
+                                                        {enrollment.monthly_sessions_attended || 0}
+                                                      </div>
+                                                      <div className="text-xs text-purple-600">Days This Month</div>
+                                                    </div>
+                                                    <div className="bg-white/60 rounded-lg p-2 text-center">
+                                                      <div className="text-lg font-bold text-green-700">
+                                                        {enrollment.attendance_rate || 0}%
+                                                      </div>
+                                                      <div className="text-xs text-green-600">Attendance Rate</div>
+                                                    </div>
+                                                  </div>
+
+                                                  {/* Subscription Payment Info */}
+                                                  <div className="bg-white/80 rounded-lg p-2 space-y-1">
+                                                    <div className="flex justify-between text-xs">
+                                                      <span className="text-purple-600 font-medium">Monthly Fee:</span>
+                                                      <span className="text-purple-800 font-bold">
+                                                        {enrollment.subscription_amount || enrollment.price_per_session || 0} DA
+                                                      </span>
+                                                    </div>
+                                                    <div className="flex justify-between text-xs">
+                                                      <span className="text-purple-600 font-medium">Next Payment:</span>
+                                                      <span className="text-purple-800 font-bold">
+                                                        {enrollment.next_subscription_date || 'Not Set'}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+
+                                                  {/* Payment Due Notice */}
+                                                  {enrollment.next_subscription_date && new Date(enrollment.next_subscription_date) <= new Date() && (
+                                                    <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded-md">
+                                                      <div className="flex items-center justify-between gap-2">
+                                                        <div className="flex items-center gap-2">
+                                                          <AlertCircle className="w-3 h-3 text-red-600" />
+                                                          <span className="text-xs text-red-800 font-medium">💰 Payment Overdue</span>
+                                                        </div>
+                                                        <button
+                                                          onClick={() => {/* Handle kindergarten payment */}}
+                                                          className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded shadow-sm transition-colors duration-200 flex items-center gap-1"
+                                                          title="Process monthly payment"
+                                                        >
+                                                          <CheckCircle className="w-3 h-3" />
+                                                          Pay Now
+                                                        </button>
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              ) : (enrollment.pricing_type || 'session') === 'monthly' && (
                                                 <div className="mb-3 p-3 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
                                                   <div className="flex items-center justify-between mb-2">
                                                     <span className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Monthly Progress</span>
@@ -4971,44 +4629,6 @@ const AdminDashboard: React.FC = () => {
                                                       </>
                                                     )}
                                                   </div>
-                                                  <div className="grid grid-cols-2 gap-1 lg:gap-2">
-                                                    <button
-                                                      onClick={() => handleMarkAttendance(student.id, enrollment.section_id, true, enrollment.pricing_type || 'session')}
-                                                      disabled={markingAttendance.has(student.id)}
-                                                      className="flex items-center justify-center gap-1 lg:gap-2 px-2 lg:px-4 py-2 lg:py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-bold rounded-lg lg:rounded-xl hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-                                                    >
-                                                      {markingAttendance.has(student.id) ? (
-                                                        <>
-                                                          <RefreshCw className="w-2 h-2 lg:w-3 lg:h-3 animate-spin" />
-                                                          <span className="hidden lg:inline">Processing...</span>
-                                                        </>
-                                                      ) : (
-                                                        <>
-                                                          <CheckCircle className="w-2 h-2 lg:w-3 lg:h-3" />
-                                                          <span className="hidden sm:inline">Attended</span>
-                                                          <span className="sm:hidden">✓</span>
-                                                        </>
-                                                      )}
-                                                    </button>
-                                                    <button
-                                                      onClick={() => handleMarkAttendance(student.id, enrollment.section_id, false, enrollment.pricing_type || 'session')}
-                                                      disabled={markingAttendance.has(student.id)}
-                                                      className="flex items-center justify-center gap-1 lg:gap-2 px-2 lg:px-4 py-2 lg:py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white text-xs font-bold rounded-lg lg:rounded-xl hover:from-red-700 hover:to-rose-700 disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-                                                    >
-                                                      {markingAttendance.has(student.id) ? (
-                                                        <>
-                                                          <RefreshCw className="w-2 h-2 lg:w-3 lg:h-3 animate-spin" />
-                                                          <span className="hidden lg:inline">Processing...</span>
-                                                        </>
-                                                      ) : (
-                                                        <>
-                                                          <XCircle className="w-2 h-2 lg:w-3 lg:h-3" />
-                                                          <span className="hidden sm:inline">Absent</span>
-                                                          <span className="sm:hidden">✗</span>
-                                                        </>
-                                                      )}
-                                                    </button>
-                                                  </div>
 
                                                   {/* Payment Status Section - Show after attendance is marked */}
                                                   {enrollment.today_attendance && (
@@ -5033,38 +4653,6 @@ const AdminDashboard: React.FC = () => {
                                                           )}
                                                         </div>
                                                       </div>
-                                                      <div className="grid grid-cols-2 gap-1 lg:gap-2">
-                                                        <button
-                                                          onClick={() => handleMarkAttendancePayment(enrollment.today_attendance.id, 'paid')}
-                                                          disabled={processingPayments.has(student.id)}
-                                                          className="flex items-center justify-center gap-1 lg:gap-2 px-2 lg:px-3 py-2 lg:py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 transition-all duration-200 shadow-sm hover:shadow-md"
-                                                        >
-                                                          {processingPayments.has(student.id) ? (
-                                                            <RefreshCw className="w-2 h-2 lg:w-3 lg:h-3 animate-spin" />
-                                                          ) : (
-                                                            <>
-                                                              <CheckCircle className="w-2 h-2 lg:w-3 lg:h-3" />
-                                                              <span className="hidden sm:inline">Mark Paid</span>
-                                                              <span className="sm:hidden">✓</span>
-                                                            </>
-                                                          )}
-                                                        </button>
-                                                        <button
-                                                          onClick={() => handleMarkAttendancePayment(enrollment.today_attendance.id, 'unpaid')}
-                                                          disabled={processingPayments.has(student.id)}
-                                                          className="flex items-center justify-center gap-1 lg:gap-2 px-2 lg:px-3 py-2 lg:py-2 bg-gradient-to-r from-red-600 to-rose-600 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 transition-all duration-200 shadow-sm hover:shadow-md"
-                                                        >
-                                                          {processingPayments.has(student.id) ? (
-                                                            <RefreshCw className="w-2 h-2 lg:w-3 lg:h-3 animate-spin" />
-                                                          ) : (
-                                                            <>
-                                                              <XCircle className="w-2 h-2 lg:w-3 lg:h-3" />
-                                                              <span className="hidden sm:inline">Not Paid</span>
-                                                              <span className="sm:hidden">✗</span>
-                                                            </>
-                                                          )}
-                                                        </button>
-                                                      </div>
                                                     </div>
                                                   )}
                                                 </div>
@@ -5081,62 +4669,6 @@ const AdminDashboard: React.FC = () => {
                                                     ) : (
                                                       <span className="text-xs text-amber-600 font-medium">(Warning Needed)</span>
                                                     )}
-                                                  </div>
-                                                  <div className="grid grid-cols-3 gap-1 lg:gap-2">
-                                                    <button
-                                                      onClick={() => handleMarkAttendance(student.id, enrollment.section_id, true, 'monthly')}
-                                                      disabled={markingAttendance.has(student.id) || (enrollment.monthly_sessions_attended || 0) >= 4}
-                                                      className="flex items-center justify-center gap-1 lg:gap-2 px-2 lg:px-3 py-2 lg:py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-bold rounded-lg lg:rounded-xl hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-                                                    >
-                                                      {markingAttendance.has(student.id) ? (
-                                                        <>
-                                                          <RefreshCw className="w-2 h-2 lg:w-3 lg:h-3 animate-spin" />
-                                                          <span className="hidden lg:inline">Processing...</span>
-                                                        </>
-                                                      ) : (
-                                                        <>
-                                                          <CheckCircle className="w-2 h-2 lg:w-3 lg:h-3" />
-                                                          <span className="hidden lg:inline">Present</span>
-                                                          <span className="lg:hidden">✓</span>
-                                                        </>
-                                                      )}
-                                                    </button>
-                                                    <button
-                                                      onClick={() => handleMarkAttendance(student.id, enrollment.section_id, false, 'monthly', true)}
-                                                      disabled={markingAttendance.has(student.id) || (enrollment.monthly_sessions_attended || 0) >= 4}
-                                                      className="flex items-center justify-center gap-1 lg:gap-2 px-2 lg:px-3 py-2 lg:py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white text-xs font-bold rounded-lg lg:rounded-xl hover:from-red-700 hover:to-rose-700 disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-                                                    >
-                                                      {markingAttendance.has(student.id) ? (
-                                                        <>
-                                                          <RefreshCw className="w-2 h-2 lg:w-3 lg:h-3 animate-spin" />
-                                                          <span className="hidden lg:inline">Processing...</span>
-                                                        </>
-                                                      ) : (
-                                                        <>
-                                                          <XCircle className="w-2 h-2 lg:w-3 lg:h-3" />
-                                                          <span className="hidden lg:inline">Absent</span>
-                                                          <span className="lg:hidden">✗</span>
-                                                        </>
-                                                      )}
-                                                    </button>
-                                                    <button
-                                                      onClick={() => handleRemoveSessionFixed(student.id, enrollment.section_id)}
-                                                      disabled={markingAttendance.has(student.id) || (enrollment.monthly_sessions_attended || 0) <= 0}
-                                                      className="flex items-center justify-center gap-1 lg:gap-2 px-2 lg:px-3 py-2 lg:py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white text-xs font-bold rounded-lg lg:rounded-xl hover:from-orange-700 hover:to-red-700 disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-                                                    >
-                                                      {markingAttendance.has(student.id) ? (
-                                                        <>
-                                                          <RefreshCw className="w-2 h-2 lg:w-3 lg:h-3 animate-spin" />
-                                                          <span className="hidden lg:inline">Processing...</span>
-                                                        </>
-                                                      ) : (
-                                                        <>
-                                                          <Minus className="w-2 h-2 lg:w-3 lg:h-3" />
-                                                          <span className="hidden lg:inline">Remove</span>
-                                                          <span className="lg:hidden">-</span>
-                                                        </>
-                                                      )}
-                                                    </button>
                                                   </div>
                                                 </div>
                                               )}
@@ -5155,22 +4687,6 @@ const AdminDashboard: React.FC = () => {
                                           >
                                             <Eye className="w-3 h-3 lg:w-4 lg:h-4 group-hover:scale-110 transition-transform" />
                                             <span className="text-xs lg:text-sm font-bold hidden sm:inline">View</span>
-                                          </button>
-                                          <button
-                                            onClick={() => handleEditStudent(student)}
-                                            className="group flex items-center justify-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 text-emerald-600 bg-gradient-to-r from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 rounded-lg lg:rounded-xl transition-all duration-300 border-2 border-emerald-200 hover:border-emerald-300 shadow-sm hover:shadow-md transform hover:scale-105"
-                                            title="Edit Student Information"
-                                          >
-                                            <Edit className="w-3 h-3 lg:w-4 lg:h-4 group-hover:scale-110 transition-transform" />
-                                            <span className="text-xs lg:text-sm font-bold hidden sm:inline">Edit</span>
-                                          </button>
-                                          <button
-                                            onClick={() => handleDeleteStudent(student.id)}
-                                            className="group flex items-center justify-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 text-red-600 bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 rounded-lg lg:rounded-xl transition-all duration-300 border-2 border-red-200 hover:border-red-300 shadow-sm hover:shadow-md transform hover:scale-105"
-                                            title="Delete Student"
-                                          >
-                                            <Trash2 className="w-3 h-3 lg:w-4 lg:h-4 group-hover:scale-110 transition-transform" />
-                                            <span className="text-xs lg:text-sm font-bold hidden sm:inline">Delete</span>
                                           </button>
                                         </div>
                                       </td>
@@ -5194,14 +4710,8 @@ const AdminDashboard: React.FC = () => {
                               <StudentCard
                                 key={student.id}
                                 student={student}
-                                onEdit={() => handleEditStudent(student)}
-                                onDelete={() => handleDeleteStudent(student.id)}
                                 onToggleMobile={() => handleToggleStudentMobile(student.id)}
                                 onViewDetails={() => handleViewStudentDetails(student)}
-                                onMarkPresent={(classId) => handleMarkAttendance(student.id, classId, true, student.payment_status?.some((p: any) => p.type === 'monthly') ? 'monthly' : 'session')}
-                                onMarkAbsent={(classId, addAsAbsent = false) => handleMarkAttendance(student.id, classId, false, student.payment_status?.some((p: any) => p.type === 'monthly') ? 'monthly' : 'session', addAsAbsent)}
-                                onRemoveSession={(classId) => handleRemoveSessionFixed(student.id, classId)}
-                                markingAttendance={markingAttendance.has(student.id)}
                                 selectedSection={selectedSection}
                               />
                             ))}
@@ -6153,13 +5663,6 @@ const AdminDashboard: React.FC = () => {
                   </div>
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => setShowStudentModal(true)}
-                      className="px-4 py-2 bg-gradient-gold text-secondary rounded-lg hover:shadow-luxury transition-all duration-300"
-                    >
-                      <UserPlus className="w-4 h-4 inline mr-2" />
-                      Add Student
-                    </button>
-                    <button
                       onClick={() => fetchDashboardData()}
                       className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                     >
@@ -6427,12 +5930,8 @@ const AdminDashboard: React.FC = () => {
                                       <div className="flex items-center justify-between mb-3">
                                         <h4 className="font-medium text-foreground flex items-center">
                                           <CreditCard className="w-4 h-4 mr-2" />
-                                          Payment Management
+                                          Payment Statistics
                                         </h4>
-                                        <button className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center">
-                                          <DollarSign className="w-3 h-3 mr-1" />
-                                          Process Payment
-                                        </button>
                                       </div>
 
                                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
@@ -6610,20 +6109,6 @@ const AdminDashboard: React.FC = () => {
                                     >
                                       <Eye className="w-3 h-3 mr-1" />
                                       View Details
-                                    </button>
-                                    <button
-                                      onClick={() => handleEditStudent(student)}
-                                      className="px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm flex items-center"
-                                    >
-                                      <Edit className="w-3 h-3 mr-1" />
-                                      Edit
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteStudent(student.id)}
-                                      className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center"
-                                    >
-                                      <Trash2 className="w-3 h-3 inline mr-1" />
-                                      Delete
                                     </button>
                                   </div>
                                 </div>
@@ -7229,6 +6714,388 @@ const AdminDashboard: React.FC = () => {
                     )}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'kindergarten' && (
+            <div className="bg-card rounded-xl shadow-luxury border border-border">
+              <div className="p-6 border-b border-border flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">🧸 Kindergarten Management</h2>
+                  <p className="text-muted-foreground mt-1">Manage kindergarten courses, classes, and subscriptions</p>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => fetchDashboardData()}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                  >
+                    <BarChart3 className="w-4 h-4 inline mr-2" />
+                    Refresh
+                  </button>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                  {/* Kindergarten Stats Cards */}
+                  <div className="bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-950/20 dark:to-purple-950/20 p-4 rounded-lg border border-pink-200 dark:border-pink-800">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-pink-600 dark:text-pink-400">Kindergarten Courses</p>
+                        <p className="text-2xl font-bold text-pink-700 dark:text-pink-300">
+                          {courses.filter(c => c.category === 'روضة').length}
+                        </p>
+                      </div>
+                      <GraduationCap className="w-8 h-8 text-pink-500" />
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Active Classes</p>
+                        <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                          {allSections.filter(s => s.course?.category === 'روضة' && s.is_active).length}
+                        </p>
+                      </div>
+                      <BookOpen className="w-8 h-8 text-blue-500" />
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-green-600 dark:text-green-400">Enrolled Students</p>
+                        <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                          {studentsTableData.filter(s =>
+                            s.enrollment_info?.courses?.some(c => c.category === 'روضة')
+                          ).length}
+                        </p>
+                      </div>
+                      <Users className="w-8 h-8 text-green-500" />
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-950/20 dark:to-yellow-950/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Monthly Revenue</p>
+                        <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          {courses.filter(c => c.category === 'روضة').reduce((sum, c) => sum + (c.monthly_price || 0), 0)} DA
+                        </p>
+                      </div>
+                      <DollarSign className="w-8 h-8 text-orange-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Kindergarten Courses Section */}
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">Kindergarten Courses</h3>
+                  {courses.filter(c => c.category === 'روضة').length === 0 ? (
+                    <div className="text-center py-8 bg-muted/50 rounded-lg">
+                      <GraduationCap className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground mb-4">No kindergarten courses found</p>
+                      <button
+                        onClick={() => setShowCourseModal(true)}
+                        className="px-4 py-2 bg-gradient-gold text-secondary rounded-lg hover:shadow-luxury transition-all"
+                      >
+                        <Plus className="w-4 h-4 inline mr-2" />
+                        Add First Kindergarten Course
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {courses.filter(c => c.category === 'روضة').map(course => (
+                        <div key={course.id} className="bg-card border border-border rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-foreground">{course.name}</h4>
+                              <p className="text-sm text-muted-foreground">Category: {course.category}</p>
+                            </div>
+                            <div className="flex space-x-1">
+                              <button
+                                onClick={() => handleEditCourse(course)}
+                                className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                title="Edit Course"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Monthly Price:</span>
+                              <span className="font-medium">{course.monthly_price} DA</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Max Students:</span>
+                              <span className="font-medium">{course.max_students}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Status:</span>
+                              <span className={`font-medium ${course.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                                {course.is_active ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 pt-3 border-t border-border">
+                            <p className="text-xs text-muted-foreground">
+                              Classes: {allSections.filter(s => s.course_id === course.id).length}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Kindergarten Classes Section */}
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">Kindergarten Classes</h3>
+                  {allSections.filter(s => s.course?.category === 'روضة').length === 0 ? (
+                    <div className="text-center py-8 bg-muted/50 rounded-lg">
+                      <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No kindergarten classes found</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left p-3 font-medium text-muted-foreground">Class Name</th>
+                            <th className="text-left p-3 font-medium text-muted-foreground">Course</th>
+                            <th className="text-left p-3 font-medium text-muted-foreground">Schedule</th>
+                            <th className="text-left p-3 font-medium text-muted-foreground">Time</th>
+                            <th className="text-left p-3 font-medium text-muted-foreground">Students</th>
+                            <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
+                            <th className="text-left p-3 font-medium text-muted-foreground">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allSections.filter(s => s.course?.category === 'روضة').map(section => (
+                            <tr key={section.id} className="border-b border-border hover:bg-muted/50">
+                              <td className="p-3 font-medium">{section.name}</td>
+                              <td className="p-3">{section.course?.name}</td>
+                              <td className="p-3">
+                                {section.multi_day_schedule ? (
+                                  <span className="text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                                    Multi-day
+                                  </span>
+                                ) : (
+                                  <span className="text-sm text-muted-foreground">Single day</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-sm">
+                                {section.start_time && section.end_time ?
+                                  `${section.start_time} - ${section.end_time}` :
+                                  'Not set'
+                                }
+                              </td>
+                              <td className="p-3">
+                                <span className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded text-sm">
+                                  {section.enrolled_students || 0}/{section.max_students || 0}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  section.is_active ?
+                                    'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                                    'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                                }`}>
+                                  {section.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <button
+                                  onClick={() => handleEditSection(section)}
+                                  className="text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 p-1 rounded"
+                                  title="Edit Class"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Kindergarten Enrollments Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">🧸 Kindergarten Enrollments</h3>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setSelectedKindergartenView('all')}
+                        className={`px-3 py-1 rounded text-sm ${selectedKindergartenView === 'all' ? 'bg-pink-500 text-white' : 'bg-muted text-muted-foreground'}`}
+                      >
+                        All ({studentsTableData.filter(s => s.enrollments?.some(e => e.is_kindergarten === true)).length})
+                      </button>
+                      <button
+                        onClick={() => setSelectedKindergartenView('active')}
+                        className={`px-3 py-1 rounded text-sm ${selectedKindergartenView === 'active' ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}
+                      >
+                        Active
+                      </button>
+                      <button
+                        onClick={() => setSelectedKindergartenView('pending')}
+                        className={`px-3 py-1 rounded text-sm ${selectedKindergartenView === 'pending' ? 'bg-yellow-500 text-white' : 'bg-muted text-muted-foreground'}`}
+                      >
+                        Pending Payment
+                      </button>
+                      <button
+                        onClick={() => setSelectedKindergartenView('expired')}
+                        className={`px-3 py-1 rounded text-sm ${selectedKindergartenView === 'expired' ? 'bg-red-500 text-white' : 'bg-muted text-muted-foreground'}`}
+                      >
+                        Expired
+                      </button>
+                    </div>
+                  </div>
+
+                  {studentsTableData.filter(s =>
+                    s.enrollments?.some(e => e.is_kindergarten === true)
+                  ).length === 0 ? (
+                    <div className="text-center py-8 bg-muted/50 rounded-lg">
+                      <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No kindergarten enrollments found</p>
+                      <p className="text-sm text-muted-foreground mt-2">Looking for enrollments with is_kindergarten_subscription=1</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {studentsTableData.filter(s => {
+                        const hasKindergarten = s.enrollments?.some(e => e.is_kindergarten === true);
+                        if (!hasKindergarten) return false;
+                        
+                        if (selectedKindergartenView === 'all') return true;
+                        
+                        const kindergartenEnrollments = s.enrollments?.filter(e => e.is_kindergarten === true) || [];
+                        if (selectedKindergartenView === 'active') {
+                          return kindergartenEnrollments.some(e => e.subscription_status === 'active');
+                        } else if (selectedKindergartenView === 'pending') {
+                          return kindergartenEnrollments.some(e => e.subscription_status === 'pending');
+                        } else if (selectedKindergartenView === 'expired') {
+                          return kindergartenEnrollments.some(e => e.subscription_status === 'expired');
+                        }
+                        return false;
+                      }).map(student => {
+                        const kindergartenEnrollments = student.enrollments?.filter(e => e.is_kindergarten === true) || [];
+                        
+                        return kindergartenEnrollments.map((enrollment, idx) => {
+                          const isPaymentDue = enrollment.next_subscription_date && 
+                            new Date(enrollment.next_subscription_date) <= new Date();
+                          const daysUntilPayment = enrollment.next_subscription_date ? 
+                            Math.ceil((new Date(enrollment.next_subscription_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+                          return (
+                            <div key={`${student.id}-${enrollment.enrollment_id}-${idx}`} 
+                              className="bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-950/10 dark:to-purple-950/10 border border-pink-200 dark:border-pink-800 rounded-lg p-4 hover:shadow-md transition-shadow">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <h4 className="font-semibold text-foreground text-lg">
+                                      🧸 {student.full_name || student.name || 'Unknown Student'}
+                                    </h4>
+                                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                      enrollment.subscription_status === 'active' ?
+                                        'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                                        enrollment.subscription_status === 'pending' ?
+                                        'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' :
+                                        'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                                    }`}>
+                                      {enrollment.subscription_status || 'Unknown'}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    Parent: {student.parent?.name || 'N/A'} • Phone: {student.phone_number || 'N/A'}
+                                  </p>
+                                </div>
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedKindergartenEnrollment({
+                                        student,
+                                        enrollment,
+                                        enrollmentId: enrollment.enrollment_id
+                                      });
+                                      setShowKindergartenDetailModal(true);
+                                    }}
+                                    className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+                                    title="View Details"
+                                  >
+                                    <Eye className="w-4 h-4 inline mr-1" />
+                                    Details
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                  <p className="text-muted-foreground">Course</p>
+                                  <p className="font-medium">{enrollment.course_name || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">Class</p>
+                                  <p className="font-medium">{enrollment.section_name || 'Not assigned'}</p>
+                                  <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs ${
+                                    enrollment.section_id >= 1 && enrollment.section_id <= 6 ?
+                                      'bg-pink-100 dark:bg-pink-900 text-pink-800 dark:text-pink-200' :
+                                      'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200'
+                                  }`}>
+                                    ID: {enrollment.section_id}
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">Monthly Amount</p>
+                                  <p className="font-medium text-lg">
+                                    {enrollment.subscription_amount ? `${enrollment.subscription_amount} DA` : 'Not set'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">Next Payment</p>
+                                  <p className={`font-medium ${isPaymentDue ? 'text-red-600 dark:text-red-400 font-bold' : ''}`}>
+                                    {enrollment.next_subscription_date ?
+                                      new Date(enrollment.next_subscription_date).toLocaleDateString() :
+                                      'Not set'
+                                    }
+                                  </p>
+                                  {daysUntilPayment !== null && (
+                                    <p className={`text-xs mt-1 ${
+                                      daysUntilPayment < 0 ? 'text-red-600 dark:text-red-400' :
+                                      daysUntilPayment <= 7 ? 'text-yellow-600 dark:text-yellow-400' :
+                                      'text-green-600 dark:text-green-400'
+                                    }`}>
+                                      {daysUntilPayment < 0 ? 
+                                        `${Math.abs(daysUntilPayment)} days overdue` :
+                                        daysUntilPayment === 0 ?
+                                        'Due today!' :
+                                        `${daysUntilPayment} days left`
+                                      }
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="mt-3 pt-3 border-t border-pink-200 dark:border-pink-800 flex items-center justify-between">
+                                <div className="text-xs text-muted-foreground">
+                                  Attendance: {enrollment.sessions_attended || 0} / {enrollment.total_sessions || 0} sessions 
+                                  ({enrollment.attendance_rate || 0}%)
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Enrolled: {enrollment.enrollment_date ? new Date(enrollment.enrollment_date).toLocaleDateString() : 'N/A'}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      }).flat()}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -8571,12 +8438,7 @@ const AdminDashboard: React.FC = () => {
               >
                 Close
               </button>
-              <button
-                onClick={() => handleEditStudent(selectedStudentForModal)}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-              >
-                Edit Student
-              </button>
+
             </div>
           </div>
         </div>
@@ -9788,6 +9650,596 @@ const AttendanceSystem: React.FC<{
           </div>
         </div>
       )}
+
+      {/* Kindergarten Detail Modal */}
+      {showKindergartenDetailModal && selectedKindergartenEnrollment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gradient-to-r from-pink-500 to-purple-500">
+              <h3 className="text-xl font-bold text-white flex items-center">
+                🧸 Kindergarten Enrollment Details
+              </h3>
+              <button
+                onClick={() => setShowKindergartenDetailModal(false)}
+                className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Student Information */}
+              <div className="bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-950/20 dark:to-purple-950/20 p-4 rounded-lg border border-pink-200 dark:border-pink-800">
+                <h4 className="font-semibold text-lg mb-3 text-pink-700 dark:text-pink-300">Student Information</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Student Name</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{selectedKindergartenEnrollment.student.full_name || selectedKindergartenEnrollment.student.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Student ID</p>
+                    <p className="font-medium text-gray-900 dark:text-white">#{selectedKindergartenEnrollment.student.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Parent Name</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{selectedKindergartenEnrollment.student.parent?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Contact Phone</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{selectedKindergartenEnrollment.student.phone_number || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Enrollment Information */}
+              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <h4 className="font-semibold text-lg mb-3 text-blue-700 dark:text-blue-300">Enrollment Information</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Course</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{selectedKindergartenEnrollment.enrollment.course_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Class</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{selectedKindergartenEnrollment.enrollment.section_name || 'Not assigned'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Enrollment Date</p>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {selectedKindergartenEnrollment.enrollment.enrollment_date ? 
+                        new Date(selectedKindergartenEnrollment.enrollment.enrollment_date).toLocaleDateString() : 
+                        'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Enrollment Status</p>
+                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                      selectedKindergartenEnrollment.enrollment.enrollment_status === 'approved' ?
+                        'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                        selectedKindergartenEnrollment.enrollment.enrollment_status === 'pending' ?
+                        'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' :
+                        'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                    }`}>
+                      {selectedKindergartenEnrollment.enrollment.enrollment_status || 'Unknown'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subscription Information */}
+              <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                <h4 className="font-semibold text-lg mb-3 text-green-700 dark:text-green-300">Subscription & Payment</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Subscription Status</p>
+                    <span className={`inline-block px-3 py-1 rounded text-sm font-medium ${
+                      selectedKindergartenEnrollment.enrollment.subscription_status === 'active' ?
+                        'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                        selectedKindergartenEnrollment.enrollment.subscription_status === 'pending' ?
+                        'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' :
+                        'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                    }`}>
+                      {selectedKindergartenEnrollment.enrollment.subscription_status || 'Unknown'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Monthly Amount</p>
+                    <p className="font-bold text-lg text-gray-900 dark:text-white">
+                      {selectedKindergartenEnrollment.enrollment.subscription_amount ? 
+                        `${selectedKindergartenEnrollment.enrollment.subscription_amount} DA` : 
+                        'Not set'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Next Payment Date</p>
+                    <p className={`font-medium ${
+                      selectedKindergartenEnrollment.enrollment.next_subscription_date && 
+                      new Date(selectedKindergartenEnrollment.enrollment.next_subscription_date) <= new Date() ?
+                        'text-red-600 dark:text-red-400 font-bold' :
+                        'text-gray-900 dark:text-white'
+                    }`}>
+                      {selectedKindergartenEnrollment.enrollment.next_subscription_date ?
+                        new Date(selectedKindergartenEnrollment.enrollment.next_subscription_date).toLocaleDateString() :
+                        'Not set'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Payment Status</p>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {selectedKindergartenEnrollment.enrollment.next_subscription_date && 
+                       new Date(selectedKindergartenEnrollment.enrollment.next_subscription_date) <= new Date() ?
+                        '⚠️ Payment Due' :
+                        '✅ Up to date'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Attendance Information */}
+              <div className="bg-purple-50 dark:bg-purple-950/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
+                <h4 className="font-semibold text-lg mb-3 text-purple-700 dark:text-purple-300">Attendance Record</h4>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Total Sessions</p>
+                    <p className="font-bold text-2xl text-gray-900 dark:text-white">{selectedKindergartenEnrollment.enrollment.total_sessions || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Sessions Attended</p>
+                    <p className="font-bold text-2xl text-green-600 dark:text-green-400">{selectedKindergartenEnrollment.enrollment.sessions_attended || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Attendance Rate</p>
+                    <p className="font-bold text-2xl text-blue-600 dark:text-blue-400">{selectedKindergartenEnrollment.enrollment.attendance_rate || 0}%</p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                    <div 
+                      className="bg-gradient-to-r from-green-500 to-blue-500 h-3 rounded-full transition-all"
+                      style={{ width: `${selectedKindergartenEnrollment.enrollment.attendance_rate || 0}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons Removed - Read-only mode */}
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                    Attendance & payment actions disabled - View only mode
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kindergarten Attendance Modal */}
+      {showKindergartenAttendanceModal && selectedKindergartenEnrollment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gradient-to-r from-green-500 to-emerald-500">
+              <h3 className="text-xl font-bold text-white flex items-center">
+                <CheckCircle className="w-6 h-6 mr-2" />
+                Mark Kindergarten Attendance
+              </h3>
+              <button
+                onClick={() => setShowKindergartenAttendanceModal(false)}
+                className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Student Info */}
+              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Student</p>
+                <p className="font-semibold text-lg text-gray-900 dark:text-white">
+                  {selectedKindergartenEnrollment.student.full_name || selectedKindergartenEnrollment.student.name}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Class: {selectedKindergartenEnrollment.enrollment.section_name} • 
+                  Course: {selectedKindergartenEnrollment.enrollment.course_name}
+                </p>
+              </div>
+
+              {/* Attendance Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Attendance Date
+                </label>
+                <input
+                  type="date"
+                  defaultValue={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                  id="kindergarten-attendance-date"
+                />
+              </div>
+
+              {/* Attendance Status */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Attendance Status
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      const btn = document.getElementById('attendance-present');
+                      const btns = document.querySelectorAll('[data-attendance-btn]');
+                      btns.forEach(b => b.classList.remove('ring-2', 'ring-green-500', 'ring-red-500', 'ring-yellow-500', 'ring-blue-500'));
+                      btn?.classList.add('ring-2', 'ring-green-500');
+                      btn?.setAttribute('data-selected', 'true');
+                    }}
+                    id="attendance-present"
+                    data-attendance-btn
+                    data-status="present"
+                    className="p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-green-500 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="font-medium">Present</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const btn = document.getElementById('attendance-absent');
+                      const btns = document.querySelectorAll('[data-attendance-btn]');
+                      btns.forEach(b => b.classList.remove('ring-2', 'ring-green-500', 'ring-red-500', 'ring-yellow-500', 'ring-blue-500'));
+                      btn?.classList.add('ring-2', 'ring-red-500');
+                      btn?.setAttribute('data-selected', 'true');
+                    }}
+                    id="attendance-absent"
+                    data-attendance-btn
+                    data-status="absent"
+                    className="p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-red-500 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <XCircle className="w-5 h-5 text-red-500" />
+                    <span className="font-medium">Absent</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const btn = document.getElementById('attendance-late');
+                      const btns = document.querySelectorAll('[data-attendance-btn]');
+                      btns.forEach(b => b.classList.remove('ring-2', 'ring-green-500', 'ring-red-500', 'ring-yellow-500', 'ring-blue-500'));
+                      btn?.classList.add('ring-2', 'ring-yellow-500');
+                      btn?.setAttribute('data-selected', 'true');
+                    }}
+                    id="attendance-late"
+                    data-attendance-btn
+                    data-status="late"
+                    className="p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-yellow-500 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <Clock className="w-5 h-5 text-yellow-500" />
+                    <span className="font-medium">Late</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const btn = document.getElementById('attendance-excused');
+                      const btns = document.querySelectorAll('[data-attendance-btn]');
+                      btns.forEach(b => b.classList.remove('ring-2', 'ring-green-500', 'ring-red-500', 'ring-yellow-500', 'ring-blue-500'));
+                      btn?.classList.add('ring-2', 'ring-blue-500');
+                      btn?.setAttribute('data-selected', 'true');
+                    }}
+                    id="attendance-excused"
+                    data-attendance-btn
+                    data-status="excused"
+                    className="p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <Info className="w-5 h-5 text-blue-500" />
+                    <span className="font-medium">Excused</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  id="kindergarten-attendance-notes"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Add any notes about this attendance..."
+                />
+              </div>
+
+              {/* Current Stats */}
+              <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Current Attendance Record</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Sessions Attended: <strong>{selectedKindergartenEnrollment.enrollment.sessions_attended || 0}</strong></span>
+                  <span className="text-sm">Total Sessions: <strong>{selectedKindergartenEnrollment.enrollment.total_sessions || 0}</strong></span>
+                  <span className="text-sm">Rate: <strong className="text-green-600 dark:text-green-400">{selectedKindergartenEnrollment.enrollment.attendance_rate || 0}%</strong></span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setShowKindergartenAttendanceModal(false)}
+                  className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const dateInput = document.getElementById('kindergarten-attendance-date') as HTMLInputElement;
+                    const notesInput = document.getElementById('kindergarten-attendance-notes') as HTMLTextAreaElement;
+                    const selectedBtn = document.querySelector('[data-attendance-btn][data-selected="true"]');
+                    const status = selectedBtn?.getAttribute('data-status') || 'present';
+
+                    if (!dateInput.value) {
+                      toast.error('Please select a date');
+                      return;
+                    }
+
+                    try {
+                      await axios.post('/api/admin/attendance/mark', {
+                        student_id: selectedKindergartenEnrollment.student.id,
+                        class_id: selectedKindergartenEnrollment.enrollment.section_id,
+                        attendance_date: dateInput.value,
+                        status: status,
+                        notes: notesInput.value,
+                        is_kindergarten: true
+                      });
+
+                      toast.success('Attendance marked successfully!');
+                      setShowKindergartenAttendanceModal(false);
+                      fetchStudentsTableData();
+                    } catch (error) {
+                      console.error('Error marking attendance:', error);
+                      toast.error('Failed to mark attendance');
+                    }
+                  }}
+                  className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+                >
+                  <CheckCircle className="w-4 h-4 inline mr-2" />
+                  Mark Attendance
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kindergarten Payment Modal */}
+      {showKindergartenPaymentModal && selectedKindergartenEnrollment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gradient-to-r from-purple-500 to-pink-500">
+              <h3 className="text-xl font-bold text-white flex items-center">
+                <DollarSign className="w-6 h-6 mr-2" />
+                Manage Subscription Payment
+              </h3>
+              <button
+                onClick={() => setShowKindergartenPaymentModal(false)}
+                className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Student Info */}
+              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Student</p>
+                <p className="font-semibold text-lg text-gray-900 dark:text-white">
+                  {selectedKindergartenEnrollment.student.full_name || selectedKindergartenEnrollment.student.name}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Class: {selectedKindergartenEnrollment.enrollment.section_name} • 
+                  Course: {selectedKindergartenEnrollment.enrollment.course_name}
+                </p>
+              </div>
+
+              {/* Current Subscription Status */}
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
+                <h4 className="font-semibold mb-3 text-purple-700 dark:text-purple-300">Current Subscription</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Status</p>
+                    <span className={`inline-block px-3 py-1 rounded text-sm font-medium ${
+                      selectedKindergartenEnrollment.enrollment.subscription_status === 'active' ?
+                        'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                        selectedKindergartenEnrollment.enrollment.subscription_status === 'pending' ?
+                        'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' :
+                        'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                    }`}>
+                      {selectedKindergartenEnrollment.enrollment.subscription_status || 'Unknown'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Monthly Amount</p>
+                    <p className="font-bold text-xl text-purple-600 dark:text-purple-400">
+                      {selectedKindergartenEnrollment.enrollment.subscription_amount || 0} DA
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Next Payment Due</p>
+                    <p className={`font-medium ${
+                      selectedKindergartenEnrollment.enrollment.next_subscription_date && 
+                      new Date(selectedKindergartenEnrollment.enrollment.next_subscription_date) <= new Date() ?
+                        'text-red-600 dark:text-red-400 font-bold' :
+                        'text-gray-900 dark:text-white'
+                    }`}>
+                      {selectedKindergartenEnrollment.enrollment.next_subscription_date ?
+                        new Date(selectedKindergartenEnrollment.enrollment.next_subscription_date).toLocaleDateString() :
+                        'Not set'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Payment Status</p>
+                    {selectedKindergartenEnrollment.enrollment.next_subscription_date && 
+                     new Date(selectedKindergartenEnrollment.enrollment.next_subscription_date) <= new Date() ? (
+                      <span className="text-red-600 dark:text-red-400 font-bold animate-pulse">⚠️ OVERDUE</span>
+                    ) : (
+                      <span className="text-green-600 dark:text-green-400 font-medium">✅ Up to date</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Options */}
+              <div>
+                <h4 className="font-semibold mb-3 text-gray-900 dark:text-white">Payment Action</h4>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="payment-renew"
+                      name="payment-action"
+                      value="renew"
+                      defaultChecked
+                      className="w-4 h-4 text-purple-600"
+                    />
+                    <label htmlFor="payment-renew" className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <div className="font-medium text-gray-900 dark:text-white">Renew Subscription</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Mark payment received and extend subscription by 1 month</div>
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="payment-update"
+                      name="payment-action"
+                      value="update"
+                      className="w-4 h-4 text-purple-600"
+                    />
+                    <label htmlFor="payment-update" className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <div className="font-medium text-gray-900 dark:text-white">Update Subscription Details</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Change subscription status, amount, or dates</div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Update Fields */}
+              <div id="update-fields" className="space-y-4 hidden">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Subscription Status
+                  </label>
+                  <select
+                    id="subscription-status"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                    defaultValue={selectedKindergartenEnrollment.enrollment.subscription_status}
+                  >
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="expired">Expired</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Monthly Amount (DA)
+                  </label>
+                  <input
+                    type="number"
+                    id="subscription-amount"
+                    defaultValue={selectedKindergartenEnrollment.enrollment.subscription_amount}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Next Payment Date
+                  </label>
+                  <input
+                    type="date"
+                    id="next-payment-date"
+                    defaultValue={selectedKindergartenEnrollment.enrollment.next_subscription_date ? 
+                      new Date(selectedKindergartenEnrollment.enrollment.next_subscription_date).toISOString().split('T')[0] : ''}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Payment Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Payment Notes (Optional)
+                </label>
+                <textarea
+                  id="payment-notes"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Add notes about this payment..."
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setShowKindergartenPaymentModal(false)}
+                  className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const action = (document.querySelector('input[name="payment-action"]:checked') as HTMLInputElement)?.value || 'renew';
+                    const notes = (document.getElementById('payment-notes') as HTMLTextAreaElement).value;
+
+                    try {
+                      if (action === 'renew') {
+                        // Renew subscription - extend by 1 month
+                        const nextDate = new Date(selectedKindergartenEnrollment.enrollment.next_subscription_date || new Date());
+                        nextDate.setMonth(nextDate.getMonth() + 1);
+
+                        await axios.put(`/api/admin/enrollments/${selectedKindergartenEnrollment.enrollmentId}`, {
+                          subscription_status: 'active',
+                          next_subscription_date: nextDate.toISOString().split('T')[0],
+                          payment_notes: notes
+                        });
+
+                        toast.success('Subscription renewed successfully!');
+                      } else {
+                        // Update subscription details
+                        const status = (document.getElementById('subscription-status') as HTMLSelectElement).value;
+                        const amount = parseFloat((document.getElementById('subscription-amount') as HTMLInputElement).value);
+                        const nextDate = (document.getElementById('next-payment-date') as HTMLInputElement).value;
+
+                        await axios.put(`/api/admin/enrollments/${selectedKindergartenEnrollment.enrollmentId}`, {
+                          subscription_status: status,
+                          subscription_amount: amount,
+                          next_subscription_date: nextDate,
+                          payment_notes: notes
+                        });
+
+                        toast.success('Subscription updated successfully!');
+                      }
+
+                      setShowKindergartenPaymentModal(false);
+                      fetchStudentsTableData();
+                    } catch (error) {
+                      console.error('Error managing payment:', error);
+                      toast.error('Failed to process payment');
+                    }
+                  }}
+                  className="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-medium"
+                >
+                  <DollarSign className="w-4 h-4 inline mr-2" />
+                  Process Payment
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <script dangerouslySetInnerHTML={{__html: `
+        document.addEventListener('change', function(e) {
+          if (e.target && e.target.name === 'payment-action') {
+            const updateFields = document.getElementById('update-fields');
+            if (updateFields) {
+              updateFields.classList.toggle('hidden', e.target.value === 'renew');
+            }
+          }
+        });
+      `}} />
     </div>
   );
 };
