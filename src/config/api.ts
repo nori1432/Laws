@@ -1,5 +1,5 @@
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://lawsofsuccess.live';
 
 // Debug: Log the API URL to console (remove in production)
 console.log('🔗 API Base URL:', API_BASE_URL);
@@ -100,3 +100,4 @@ export const api = {
 };
 
 export { API_BASE_URL };
+
