@@ -12,6 +12,7 @@ from models import (db, User, Parent, Student, Class, Enrollment, Attendance,
                    course_to_dict, class_to_dict, attendance_to_dict, student_to_dict)
 from utils import hash_password, verify_password, generate_qr_code, generate_parent_mobile_credentials, generate_student_mobile_credentials
 from sqlalchemy import func, and_
+import json
 
 @mobile_bp.route('/logout', methods=['POST', 'OPTIONS'])
 @jwt_required()
@@ -40,6 +41,278 @@ def mobile_logout():
     except Exception as e:
         print(f"Logout error: {str(e)}")
         return jsonify({'error': 'Logout failed'}), 500
+
+
+@mobile_bp.route('/update-push-token', methods=['POST', 'OPTIONS'])
+@jwt_required()
+def update_push_token():
+    """Update user's push notification token"""
+    
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'preflight ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
+
+    try:
+        # Get current user
+        user_id = int(get_jwt_identity())
+        claims = get_jwt()
+        user_type = claims.get('user_type')
+        
+        # Get request data
+        data = request.get_json()
+        push_token = data.get('push_token')
+        platform = data.get('platform')
+        device_info = data.get('device_info', {})
+        
+        if not push_token:
+            return jsonify({'error': 'Push token is required'}), 400
+        
+        # Find the correct User record based on user_type
+        user = None
+        if user_type == 'parent':
+            # For parents, find the parent record first, then get their user_id
+            parent = Parent.query.get(user_id)
+            if parent and parent.user_id:
+                user = User.query.get(parent.user_id)
+            elif parent:
+                # Parent doesn't have a user record, create one or handle differently
+                # For now, we'll skip push token update for parents without user records
+                print(f"⚠️ Parent {parent.full_name} (ID: {parent.id}) has no associated user record - skipping push token update")
+                return jsonify({'message': 'Push token update skipped - no user record found'}), 200
+        elif user_type == 'student':
+            # For students, use their user_id to find the User record
+            student = Student.query.get(user_id)
+            if student and student.user_id:
+                user = User.query.get(student.user_id)
+            else:
+                print(f"⚠️ Student ID {user_id} has no associated user record - skipping push token update")
+                return jsonify({'message': 'Push token update skipped - no user record found'}), 200
+        else:
+            # Fallback to direct user lookup
+            user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Update push token information
+        user.push_token = push_token
+        db.session.commit()
+        
+        # Create token preview for logging (first 20 characters)
+        token_preview = push_token[:20] + '...' if len(push_token) > 20 else push_token
+        
+        print(f"✅ Push token updated for {user_type} ID {user_id}: {token_preview}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Push token updated successfully',
+            'token_preview': token_preview,
+            'platform': platform
+        })
+        
+    except Exception as e:
+        print(f"❌ Error updating push token: {str(e)}")
+        return jsonify({'error': 'Failed to update push token'}), 500
+
+
+@mobile_bp.route('/notifications', methods=['GET', 'OPTIONS'])
+@jwt_required()
+def get_notifications():
+    """Get all notifications for the current user"""
+    
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'preflight ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
+
+    try:
+        user_id = int(get_jwt_identity())
+        claims = get_jwt()
+        user_type = claims.get('user_type')
+        
+        # Map to correct User record for notifications
+        actual_user_id = None
+        if user_type == 'parent':
+            parent = Parent.query.get(user_id)
+            if parent and parent.user_id:
+                actual_user_id = parent.user_id
+        elif user_type == 'student':
+            student = Student.query.get(user_id)
+            if student and student.user_id:
+                actual_user_id = student.user_id
+        else:
+            actual_user_id = user_id
+        
+        if not actual_user_id:
+            return jsonify({
+                'success': True,
+                'notifications': [],
+                'count': 0
+            })
+        
+        # Get all notifications for the user, ordered by newest first
+        notifications = Notification.query.filter_by(user_id=actual_user_id)\
+            .order_by(Notification.created_at.desc())\
+            .limit(50)\
+            .all()
+        
+        notifications_data = []
+        for notification in notifications:
+            notifications_data.append({
+                'id': notification.id,
+                'title': notification.title,
+                'message': notification.message,
+                'type': notification.type,
+                'is_read': notification.is_read,
+                'created_at': notification.created_at.isoformat()
+            })
+        
+        return jsonify({
+            'success': True,
+            'notifications': notifications_data,
+            'count': len(notifications_data)
+        })
+        
+    except Exception as e:
+        print(f"❌ Error fetching notifications: {str(e)}")
+        return jsonify({'error': 'Failed to fetch notifications'}), 500
+
+
+@mobile_bp.route('/notifications/new', methods=['GET', 'OPTIONS'])
+@jwt_required()
+def get_new_notifications():
+    """Get new notifications since a specific timestamp"""
+    
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'preflight ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
+
+    try:
+        user_id = int(get_jwt_identity())
+        claims = get_jwt()
+        user_type = claims.get('user_type')
+        since = request.args.get('since')
+        
+        # Map to correct User record for notifications
+        actual_user_id = None
+        if user_type == 'parent':
+            parent = Parent.query.get(user_id)
+            if parent and parent.user_id:
+                actual_user_id = parent.user_id
+        elif user_type == 'student':
+            student = Student.query.get(user_id)
+            if student and student.user_id:
+                actual_user_id = student.user_id
+        else:
+            actual_user_id = user_id
+        
+        if not actual_user_id:
+            return jsonify({
+                'success': True,
+                'notifications': [],
+                'count': 0
+            })
+        
+        query = Notification.query.filter_by(user_id=actual_user_id)
+        
+        if since:
+            try:
+                since_date = datetime.fromisoformat(since.replace('Z', '+00:00'))
+                query = query.filter(Notification.created_at > since_date)
+            except:
+                pass  # Invalid date format, ignore filter
+        
+        # Get new notifications, ordered by newest first
+        notifications = query.order_by(Notification.created_at.desc()).limit(10).all()
+        
+        notifications_data = []
+        for notification in notifications:
+            notifications_data.append({
+                'id': notification.id,
+                'title': notification.title,
+                'message': notification.message,
+                'type': notification.type,
+                'is_read': notification.is_read,
+                'created_at': notification.created_at.isoformat()
+            })
+        
+        return jsonify({
+            'success': True,
+            'notifications': notifications_data,
+            'count': len(notifications_data)
+        })
+        
+    except Exception as e:
+        print(f"❌ Error fetching new notifications: {str(e)}")
+        return jsonify({'error': 'Failed to fetch new notifications'}), 500
+
+
+@mobile_bp.route('/notifications/<int:notification_id>/read', methods=['POST', 'OPTIONS'])
+@jwt_required()
+def mark_notification_read(notification_id):
+    """Mark a notification as read"""
+    
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'preflight ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
+
+    try:
+        user_id = int(get_jwt_identity())
+        claims = get_jwt()
+        user_type = claims.get('user_type')
+        
+        # Map to correct User record for notifications
+        actual_user_id = None
+        if user_type == 'parent':
+            parent = Parent.query.get(user_id)
+            if parent and parent.user_id:
+                actual_user_id = parent.user_id
+        elif user_type == 'student':
+            student = Student.query.get(user_id)
+            if student and student.user_id:
+                actual_user_id = student.user_id
+        else:
+            actual_user_id = user_id
+        
+        if not actual_user_id:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Find the notification and verify it belongs to the user
+        notification = Notification.query.filter_by(
+            id=notification_id, 
+            user_id=actual_user_id
+        ).first()
+        
+        if not notification:
+            return jsonify({'error': 'Notification not found'}), 404
+        
+        # Mark as read
+        notification.is_read = True
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Notification marked as read'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error marking notification as read: {str(e)}")
+        return jsonify({'error': 'Failed to mark notification as read'}), 500
 
 
 @mobile_bp.route('/login', methods=['POST', 'OPTIONS'])
@@ -1134,8 +1407,30 @@ def register_push_token():
     push_token = data['token']
     
     try:
-        # Store push token in User table
-        user = User.query.get(user_id)
+        # Find the correct User record based on user_type
+        user = None
+        if user_type == 'parent':
+            # For parents, find the parent record first, then get their user_id
+            parent = Parent.query.get(user_id)
+            if parent and parent.user_id:
+                user = User.query.get(parent.user_id)
+            elif parent:
+                # Parent doesn't have a user record, create one or handle differently
+                # For now, we'll skip push token registration for parents without user records
+                print(f"⚠️ Parent {parent.full_name} (ID: {parent.id}) has no associated user record - skipping push token registration")
+                return jsonify({'message': 'Push token registration skipped - no user record found'}), 200
+        elif user_type == 'student':
+            # For students, use their user_id to find the User record
+            student = Student.query.get(user_id)
+            if student and student.user_id:
+                user = User.query.get(student.user_id)
+            else:
+                print(f"⚠️ Student ID {user_id} has no associated user record - skipping push token registration")
+                return jsonify({'message': 'Push token registration skipped - no user record found'}), 200
+        else:
+            # Fallback to direct user lookup
+            user = User.query.get(user_id)
+        
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
@@ -1143,7 +1438,7 @@ def register_push_token():
         user.push_token = push_token
         db.session.commit()
         
-        print(f"Push token registered for {user_type} {user.full_name}: {push_token[:20]}...")
+        print(f"✅ Push token registered for {user_type} {user.full_name}: {push_token[:20]}...")
         return jsonify({'message': 'Push token registered successfully'}), 200
         
     except Exception as e:
@@ -1404,6 +1699,24 @@ def get_notifications(user_id):
 def mark_notification_read(notification_id):
     """Mark notification as read"""
     user_id = int(get_jwt_identity())
+    claims = get_jwt()
+    user_type = claims.get('user_type')
+    
+    # Map to correct User record for notifications
+    actual_user_id = None
+    if user_type == 'parent':
+        parent = Parent.query.get(user_id)
+        if parent and parent.user_id:
+            actual_user_id = parent.user_id
+    elif user_type == 'student':
+        student = Student.query.get(user_id)
+        if student and student.user_id:
+            actual_user_id = student.user_id
+    else:
+        actual_user_id = user_id
+    
+    if not actual_user_id:
+        return jsonify({'error': 'User not found'}), 404
     
     try:
         # Find the notification
@@ -1412,7 +1725,7 @@ def mark_notification_read(notification_id):
             return jsonify({'error': 'Notification not found'}), 404
         
         # Security check - users can only mark their own notifications as read
-        if notification.user_id != user_id:
+        if notification.user_id != actual_user_id:
             return jsonify({'error': 'Access denied'}), 403
         
         # Mark as read
