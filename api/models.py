@@ -459,6 +459,7 @@ class Notification(db.Model):
     title = db.Column(db.String(200), nullable=True)  # Will be deprecated
     message = db.Column(db.Text, nullable=True)  # Will be deprecated
     type = db.Column(db.Enum('info', 'warning', 'success', 'error', 'attendance', 'payment', 'debt', 'payment_due'), default='info')
+    recipient_type = db.Column(db.Enum('student', 'parent'), nullable=True)  # Type of recipient
     is_read = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

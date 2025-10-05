@@ -167,9 +167,17 @@ def get_notifications():
         for notification in notifications:
             notifications_data.append({
                 'id': notification.id,
+                # Bilingual title fields
+                'title_en': notification.title_en,
+                'title_ar': notification.title_ar,
+                # Bilingual message fields
+                'message_en': notification.message_en,
+                'message_ar': notification.message_ar,
+                # Legacy fields for backward compatibility
                 'title': notification.title,
                 'message': notification.message,
                 'type': notification.type,
+                'recipient_type': notification.recipient_type,
                 'is_read': notification.is_read,
                 'created_at': notification.created_at.isoformat()
             })
@@ -240,9 +248,17 @@ def get_new_notifications():
         for notification in notifications:
             notifications_data.append({
                 'id': notification.id,
+                # Bilingual title fields
+                'title_en': notification.title_en,
+                'title_ar': notification.title_ar,
+                # Bilingual message fields
+                'message_en': notification.message_en,
+                'message_ar': notification.message_ar,
+                # Legacy fields for backward compatibility
                 'title': notification.title,
                 'message': notification.message,
                 'type': notification.type,
+                'recipient_type': notification.recipient_type,
                 'is_read': notification.is_read,
                 'created_at': notification.created_at.isoformat()
             })

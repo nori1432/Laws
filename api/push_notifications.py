@@ -137,8 +137,9 @@ class PushNotificationService:
             db.session.commit()
 
             # Check if user has push token for actual push notification
-            if not user.push_token or user.push_token in ['local-only-fallback', 'expo-go-disabled', 'simulator-fallback', 'permission-denied', 'registration-failed']:
+            if not user.push_token or user.push_token in ['local-only-fallback', 'expo-go-disabled', 'simulator-fallback', 'permission-denied', 'registration-failed'] or user.push_token.startswith('DEV_') or user.push_token.startswith('LawsOfSuccess_'):
                 print(f"No valid push token for user {user_id} (token: {user.push_token}) - notification created in database only")
+                print("💡 Push notifications require a production Expo build with proper token configuration")
                 return True
 
             # For push notification, use English by default (mobile app will handle language display)
