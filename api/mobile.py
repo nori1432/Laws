@@ -1651,7 +1651,7 @@ def change_password():
 # Notification routes
 @mobile_bp.route('/notifications/<int:user_id>', methods=['GET'])
 @jwt_required()
-def get_notifications(user_id):
+def get_notifications_by_user_id(user_id):
     """Get notifications for user"""
     current_user_id = int(get_jwt_identity())
     claims = get_jwt()
@@ -1696,7 +1696,7 @@ def get_notifications(user_id):
 
 @mobile_bp.route('/notifications/<int:notification_id>/read', methods=['PUT'])
 @jwt_required()
-def mark_notification_read(notification_id):
+def mark_notification_read_put(notification_id):
     """Mark notification as read"""
     user_id = int(get_jwt_identity())
     claims = get_jwt()
