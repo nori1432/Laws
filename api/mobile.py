@@ -46,7 +46,7 @@ def mobile_logout():
 @mobile_bp.route('/update-push-token', methods=['POST', 'OPTIONS'])
 @jwt_required()
 def update_push_token():
-    """Update user's push notification token"""
+    """Update user's push notification token - same as register-push-token for backward compatibility"""
     
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
@@ -64,59 +64,82 @@ def update_push_token():
         
         # Get request data
         data = request.get_json()
-        push_token = data.get('push_token')
-        platform = data.get('platform')
+        push_token = data.get('push_token') or data.get('token')
+        platform = data.get('platform', 'unknown')
         device_info = data.get('device_info', {})
         
+        print(f"📱 Push token update request from {user_type} ID: {user_id}")
+        
         if not push_token:
-            return jsonify({'error': 'Push token is required'}), 400
+            print("❌ No push token provided")
+            return jsonify({'error': 'Push token is required', 'success': False}), 400
         
         # Find the correct User record based on user_type
         user = None
+        entity_name = "Unknown"
+        
         if user_type == 'parent':
-            # For parents, find the parent record first, then get their user_id
             parent = Parent.query.get(user_id)
-            if parent and parent.user_id:
-                user = User.query.get(parent.user_id)
-            elif parent:
-                # Parent doesn't have a user record, create one or handle differently
-                # For now, we'll skip push token update for parents without user records
-                print(f"⚠️ Parent {parent.full_name} (ID: {parent.id}) has no associated user record - skipping push token update")
-                return jsonify({'message': 'Push token update skipped - no user record found'}), 200
+            if parent:
+                entity_name = parent.full_name
+                if parent.user_id:
+                    user = User.query.get(parent.user_id)
+                else:
+                    user = User.query.filter_by(email=parent.email).first()
+                    if user:
+                        parent.user_id = user.id
+                        db.session.commit()
         elif user_type == 'student':
-            # For students, use their user_id to find the User record
             student = Student.query.get(user_id)
-            if student and student.user_id:
-                user = User.query.get(student.user_id)
-            else:
-                print(f"⚠️ Student ID {user_id} has no associated user record - skipping push token update")
-                return jsonify({'message': 'Push token update skipped - no user record found'}), 200
+            if student:
+                entity_name = student.name
+                if student.user_id:
+                    user = User.query.get(student.user_id)
+                else:
+                    user = User.query.filter_by(email=student.email).first() if student.email else None
+                    if user:
+                        student.user_id = user.id
+                        db.session.commit()
         else:
-            # Fallback to direct user lookup
             user = User.query.get(user_id)
+            if user:
+                entity_name = user.full_name
         
         if not user:
-            return jsonify({'error': 'User not found'}), 404
+            print(f"⚠️ No User record for {user_type} {entity_name} - token update skipped")
+            return jsonify({
+                'success': True,
+                'message': 'User record not found - token update skipped',
+                'warning': 'No user record available'
+            }), 200
         
         # Update push token information
         user.push_token = push_token
         db.session.commit()
         
-        # Create token preview for logging (first 20 characters)
-        token_preview = push_token[:20] + '...' if len(push_token) > 20 else push_token
+        # Create token preview for logging (first 30 characters)
+        token_preview = push_token[:30] + '...' if len(push_token) > 30 else push_token
         
-        print(f"✅ Push token updated for {user_type} ID {user_id}: {token_preview}")
+        print(f"✅ Push token updated for {user_type} {entity_name}: {token_preview}")
         
         return jsonify({
             'success': True,
             'message': 'Push token updated successfully',
             'token_preview': token_preview,
-            'platform': platform
+            'platform': platform,
+            'user_type': user_type
         })
         
     except Exception as e:
         print(f"❌ Error updating push token: {str(e)}")
-        return jsonify({'error': 'Failed to update push token'}), 500
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({
+            'error': 'Failed to update push token',
+            'success': False,
+            'details': str(e)
+        }), 500
 
 
 @mobile_bp.route('/notifications', methods=['GET', 'OPTIONS'])
@@ -1412,55 +1435,114 @@ def register_push_token():
         response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
         return response
 
-    data = request.get_json()
-    user_id = int(get_jwt_identity())
-    claims = get_jwt()
-    user_type = claims.get('user_type')
-    
-    if not data or 'token' not in data:
-        return jsonify({'error': 'Push token is required'}), 400
-    
-    push_token = data['token']
-    
     try:
+        data = request.get_json()
+        user_id = int(get_jwt_identity())
+        claims = get_jwt()
+        user_type = claims.get('user_type')
+        
+        print(f"📱 Push token registration request from {user_type} ID: {user_id}")
+        print(f"📦 Request data: {data}")
+        
+        if not data or 'token' not in data:
+            print("❌ No token in request")
+            return jsonify({'error': 'Push token is required', 'success': False}), 400
+        
+        push_token = data['token']
+        device_info = data.get('device_info', {})
+        platform = data.get('platform', 'unknown')
+        
+        print(f"🔑 Received push token: {push_token[:30]}...")
+        print(f"📱 Platform: {platform}")
+        print(f"🔧 Device info: {device_info}")
+        
         # Find the correct User record based on user_type
         user = None
+        entity_name = "Unknown"
+        
         if user_type == 'parent':
             # For parents, find the parent record first, then get their user_id
             parent = Parent.query.get(user_id)
-            if parent and parent.user_id:
-                user = User.query.get(parent.user_id)
-            elif parent:
-                # Parent doesn't have a user record, create one or handle differently
-                # For now, we'll skip push token registration for parents without user records
-                print(f"⚠️ Parent {parent.full_name} (ID: {parent.id}) has no associated user record - skipping push token registration")
-                return jsonify({'message': 'Push token registration skipped - no user record found'}), 200
+            if parent:
+                entity_name = parent.full_name
+                if parent.user_id:
+                    user = User.query.get(parent.user_id)
+                    print(f"✅ Found parent {entity_name} with user_id: {parent.user_id}")
+                else:
+                    print(f"⚠️ Parent {entity_name} (ID: {parent.id}) has no user_id - creating link")
+                    # Try to find or create user record for parent
+                    user = User.query.filter_by(email=parent.email).first()
+                    if user:
+                        parent.user_id = user.id
+                        db.session.commit()
+                        print(f"✅ Linked parent to existing user record")
+            else:
+                print(f"❌ Parent ID {user_id} not found")
+                return jsonify({'error': 'Parent not found', 'success': False}), 404
+                
         elif user_type == 'student':
             # For students, use their user_id to find the User record
             student = Student.query.get(user_id)
-            if student and student.user_id:
-                user = User.query.get(student.user_id)
+            if student:
+                entity_name = student.name
+                if student.user_id:
+                    user = User.query.get(student.user_id)
+                    print(f"✅ Found student {entity_name} with user_id: {student.user_id}")
+                else:
+                    print(f"⚠️ Student {entity_name} (ID: {student.id}) has no user_id - creating link")
+                    # Try to find or create user record for student
+                    user = User.query.filter_by(email=student.email).first() if student.email else None
+                    if user:
+                        student.user_id = user.id
+                        db.session.commit()
+                        print(f"✅ Linked student to existing user record")
             else:
-                print(f"⚠️ Student ID {user_id} has no associated user record - skipping push token registration")
-                return jsonify({'message': 'Push token registration skipped - no user record found'}), 200
+                print(f"❌ Student ID {user_id} not found")
+                return jsonify({'error': 'Student not found', 'success': False}), 404
         else:
             # Fallback to direct user lookup
             user = User.query.get(user_id)
+            if user:
+                entity_name = user.full_name
+                print(f"✅ Found user {entity_name} directly")
         
         if not user:
-            return jsonify({'error': 'User not found'}), 404
+            print(f"❌ No User record found for {user_type} {entity_name}")
+            return jsonify({
+                'error': 'User record not found',
+                'success': False,
+                'message': f'No user record found for {user_type} {entity_name}'
+            }), 404
         
         # Update push token
         user.push_token = push_token
         db.session.commit()
         
-        print(f"✅ Push token registered for {user_type} {user.full_name}: {push_token[:20]}...")
-        return jsonify({'message': 'Push token registered successfully'}), 200
+        token_preview = push_token[:30] + '...' if len(push_token) > 30 else push_token
+        print(f"✅✅✅ Push token registered successfully!")
+        print(f"👤 User: {entity_name} ({user_type})")
+        print(f"🔑 Token: {token_preview}")
+        print(f"📱 Platform: {platform}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Push token registered successfully',
+            'user_type': user_type,
+            'user_name': entity_name,
+            'token_preview': token_preview,
+            'platform': platform
+        }), 200
         
     except Exception as e:
-        print(f"Push token registration error: {str(e)}")
+        print(f"❌❌❌ Push token registration error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         db.session.rollback()
-        return jsonify({'error': 'Failed to register push token'}), 500
+        return jsonify({
+            'error': 'Failed to register push token',
+            'success': False,
+            'details': str(e)
+        }), 500
 
 
 @mobile_bp.route('/user-courses/<int:user_id>', methods=['GET'])
