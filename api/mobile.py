@@ -1456,72 +1456,81 @@ def register_push_token():
         print(f"📱 Platform: {platform}")
         print(f"🔧 Device info: {device_info}")
         
-        # Find the correct User record based on user_type
-        user = None
+        # Handle push token registration based on user type
         entity_name = "Unknown"
+        token_saved_to = None
         
         if user_type == 'parent':
-            # For parents, find the parent record first, then get their user_id
+            # For parents, save push token directly to parents table
             parent = Parent.query.get(user_id)
-            if parent:
-                entity_name = parent.full_name
-                if parent.user_id:
-                    user = User.query.get(parent.user_id)
-                    print(f"✅ Found parent {entity_name} with user_id: {parent.user_id}")
-                else:
-                    print(f"⚠️ Parent {entity_name} (ID: {parent.id}) has no user_id - creating link")
-                    # Try to find or create user record for parent
-                    user = User.query.filter_by(email=parent.email).first()
-                    if user:
-                        parent.user_id = user.id
-                        db.session.commit()
-                        print(f"✅ Linked parent to existing user record")
-            else:
+            if not parent:
                 print(f"❌ Parent ID {user_id} not found")
                 return jsonify({'error': 'Parent not found', 'success': False}), 404
+            
+            entity_name = parent.full_name
+            parent.push_token = push_token
+            token_saved_to = "parents table"
+            
+            # Also save to users table for backward compatibility (if linked)
+            if parent.user_id:
+                user = User.query.get(parent.user_id)
+                if user:
+                    user.push_token = push_token
+                    print(f"✅ Also saved to users table (user_id: {parent.user_id}) for compatibility")
+            
+            print(f"✅ Parent {entity_name} push token saved to parents table")
                 
         elif user_type == 'student':
-            # For students, use their user_id to find the User record
+            # For students, save push token to users table via student.user_id
             student = Student.query.get(user_id)
-            if student:
-                entity_name = student.name
-                if student.user_id:
-                    user = User.query.get(student.user_id)
-                    print(f"✅ Found student {entity_name} with user_id: {student.user_id}")
-                else:
-                    print(f"⚠️ Student {entity_name} (ID: {student.id}) has no user_id - creating link")
-                    # Try to find or create user record for student
-                    user = User.query.filter_by(email=student.email).first() if student.email else None
-                    if user:
-                        student.user_id = user.id
-                        db.session.commit()
-                        print(f"✅ Linked student to existing user record")
-            else:
+            if not student:
                 print(f"❌ Student ID {user_id} not found")
                 return jsonify({'error': 'Student not found', 'success': False}), 404
+            
+            entity_name = student.name
+            
+            if not student.user_id:
+                print(f"⚠️ Student {entity_name} (ID: {student.id}) has no user_id")
+                return jsonify({
+                    'error': 'Student has no user account',
+                    'success': False,
+                    'message': f'Student {entity_name} needs a user account to receive notifications'
+                }), 404
+            
+            user = User.query.get(student.user_id)
+            if not user:
+                print(f"❌ User record {student.user_id} not found for student {entity_name}")
+                return jsonify({
+                    'error': 'User record not found',
+                    'success': False
+                }), 404
+            
+            user.push_token = push_token
+            token_saved_to = "users table"
+            print(f"✅ Student {entity_name} push token saved to users table (user_id: {student.user_id})")
         else:
             # Fallback to direct user lookup
             user = User.query.get(user_id)
-            if user:
-                entity_name = user.full_name
-                print(f"✅ Found user {entity_name} directly")
+            if not user:
+                print(f"❌ No User record found for {user_type} ID {user_id}")
+                return jsonify({
+                    'error': 'User record not found',
+                    'success': False
+                }), 404
+            
+            entity_name = user.full_name
+            user.push_token = push_token
+            token_saved_to = "users table"
+            print(f"✅ User {entity_name} push token saved to users table")
         
-        if not user:
-            print(f"❌ No User record found for {user_type} {entity_name}")
-            return jsonify({
-                'error': 'User record not found',
-                'success': False,
-                'message': f'No user record found for {user_type} {entity_name}'
-            }), 404
-        
-        # Update push token
-        user.push_token = push_token
+        # Commit changes
         db.session.commit()
         
         token_preview = push_token[:30] + '...' if len(push_token) > 30 else push_token
         print(f"✅✅✅ Push token registered successfully!")
         print(f"👤 User: {entity_name} ({user_type})")
-        print(f"🔑 Token: {token_preview}")
+        print(f"� Saved to: {token_saved_to}")
+        print(f"�🔑 Token: {token_preview}")
         print(f"📱 Platform: {platform}")
         
         return jsonify({
@@ -1529,6 +1538,7 @@ def register_push_token():
             'message': 'Push token registered successfully',
             'user_type': user_type,
             'user_name': entity_name,
+            'saved_to': token_saved_to,
             'token_preview': token_preview,
             'platform': platform
         }), 200
