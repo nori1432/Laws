@@ -1,21 +1,23 @@
 """
 Push Notification Service for Laws of Success Academy
-Handles sending push notifications to mobile apps for attendance updates
+Handles sending push notifications to mobile apps via Firebase Cloud Messaging (FCM)
 """
 
 import requests
 import json
 from datetime import datetime
 from flask import current_app
-import requests
-import json
-from datetime import datetime
+import logging
 
 # Try relative import first, fall back to direct import
 try:
     from .models import User, Notification, db
+    from .firebase_config import send_fcm_notification, send_fcm_batch
 except ImportError:
     from models import User, Notification, db
+    from firebase_config import send_fcm_notification, send_fcm_batch
+
+logger = logging.getLogger(__name__)
 
 # Translation dictionaries for common notification texts
 NOTIFICATION_TRANSLATIONS = {
@@ -69,10 +71,9 @@ def translate_notification_text(text, target_lang="ar"):
 
 
 class PushNotificationService:
-    """Service for sending push notifications to mobile devices"""
+    """Service for sending push notifications to mobile devices via FCM"""
     
-    # You can configure these based on your push notification provider
-    # For now, this is a placeholder implementation
+    # Legacy URLs (kept for backward compatibility if needed)
     EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
     FCM_URL = "https://fcm.googleapis.com/fcm/send"
     
@@ -137,68 +138,74 @@ class PushNotificationService:
             db.session.commit()
 
             # Check if user has push token for actual push notification
-            if not user.push_token or user.push_token in ['local-only-fallback', 'expo-go-disabled', 'simulator-fallback', 'permission-denied', 'registration-failed'] or user.push_token.startswith('DEV_') or user.push_token.startswith('LawsOfSuccess_'):
-                print(f"No valid push token for user {user_id} (token: {user.push_token}) - notification created in database only")
-                print("💡 Push notifications require a production Expo build with proper token configuration")
+            # Check both push_token (legacy) and fcm_token (new)
+            user_token = getattr(user, 'fcm_token', None) or getattr(user, 'push_token', None)
+            
+            # Only skip push if token is explicitly invalid, otherwise try to send
+            if not user_token or user_token in ['local-only-fallback', 'expo-go-disabled', 'simulator-fallback', 'permission-denied', 'registration-failed']:
+                logger.info(f"No push token for user {user_id} - notification created in database only")
                 return True
+            
+            # Log token type but try to send for all token formats
+            if user_token.startswith('DEV_'):
+                logger.warning(f"⚠️ Development token detected for user {user_id} - skipping push")
+                return True
+            elif user_token.startswith('PROD_ERROR_'):
+                logger.warning(f"⚠️ Production error token for user {user_id} - skipping push")
+                return True
+            
+            # Try to send push notification via FCM
+            logger.info(f"📤 Attempting FCM push notification for user {user_id}")
+            logger.info(f"📝 Token: {user_token[:40]}...")
 
             # For push notification, use English by default (mobile app will handle language display)
             push_title = final_title_en or final_title_ar or "Notification"
             push_message = final_message_en or final_message_ar or "You have a new notification"
 
-            # Prepare push notification payload
-            push_payload = {
-                "to": user.push_token,
-                "title": push_title,
-                "body": push_message,
-                "data": {
-                    "type": notification_type,
-                    "notification_id": notification.id,
-                    "created_at": notification.created_at.isoformat(),
-                    "title_en": final_title_en,
-                    "title_ar": final_title_ar,
-                    "message_en": final_message_en,
-                    "message_ar": final_message_ar,
-                    **(extra_data or {})
-                },
-                "sound": "default",
-                "badge": 1
+            # Prepare data payload for FCM
+            fcm_data = {
+                "type": notification_type,
+                "notification_id": str(notification.id),
+                "created_at": notification.created_at.isoformat(),
+                "title_en": final_title_en or "",
+                "title_ar": final_title_ar or "",
+                "message_en": final_message_en or "",
+                "message_ar": final_message_ar or "",
+                **(extra_data or {})
             }
 
-            # Send to Expo push service (if using Expo)
-            if user.push_token.startswith("ExponentPushToken"):
+            # Detect token type and send accordingly
+            if user_token.startswith("ExponentPushToken"):
+                # Legacy Expo token - use Expo service
+                logger.info("Using Expo Push Service for ExponentPushToken")
+                push_payload = {
+                    "to": user_token,
+                    "title": push_title,
+                    "body": push_message,
+                    "data": fcm_data,
+                    "sound": "default",
+                    "badge": 1
+                }
                 return PushNotificationService._send_expo_notification(push_payload)
-            
-            # Send to FCM (if using Firebase)
-            elif user.push_token.startswith("f") or len(user.push_token) > 100:
-                return PushNotificationService._send_fcm_notification(push_payload)
-            
-            # For now, just log the notification (development mode)
-            print(f"📱 Bilingual push notification sent to user {user_id}:")
-            print(f"   Title (EN): {final_title_en}")
-            print(f"   Title (AR): {final_title_ar}")
-            print(f"   Message (EN): {final_message_en}")
-            print(f"   Message (AR): {final_message_ar}")
-            print(f"   Type: {notification_type}")
-            print(f"   Token: {user.push_token[:20]}...")
-            
-            return True
-            
-        except Exception as e:
-            print(f"Error sending push notification: {e}")
-            return False
-            
-            # For now, just log the notification (development mode)
-            print(f"📱 Push notification sent to user {user_id}:")
-            print(f"   Title: {title}")
-            print(f"   Message: {message}")
-            print(f"   Type: {notification_type}")
-            print(f"   Token: {user.push_token[:20]}...")
-            
-            return True
+            else:
+                # FCM token - use Firebase Cloud Messaging
+                logger.info("Using Firebase Cloud Messaging for FCM token")
+                success = send_fcm_notification(
+                    fcm_token=user_token,
+                    title=push_title,
+                    body=push_message,
+                    data=fcm_data
+                )
+                
+                if success:
+                    logger.info(f"✅ FCM push notification sent successfully to user {user_id}")
+                else:
+                    logger.error(f"❌ Failed to send FCM push notification to user {user_id}")
+                
+                return success
             
         except Exception as e:
-            print(f"Error sending push notification: {e}")
+            logger.error(f"Error sending push notification: {e}", exc_info=True)
             return False
     
     @staticmethod
@@ -236,15 +243,25 @@ class PushNotificationService:
     
     @staticmethod
     def _send_fcm_notification(payload):
-        """Send notification via Firebase Cloud Messaging"""
+        """
+        Legacy method for FCM notification (deprecated)
+        Use firebase_config.send_fcm_notification() instead
+        """
         try:
-            # FCM requires server key - you would configure this in production
-            # For now, just simulate success
-            print("📱 FCM notification would be sent here")
-            return True
+            logger.warning("⚠️ Using deprecated _send_fcm_notification method")
+            logger.info("📱 FCM notification payload received, but using new Firebase Admin SDK")
+            
+            # Extract data from legacy payload format
+            fcm_token = payload.get('to')
+            title = payload.get('title', 'Notification')
+            body = payload.get('body', '')
+            data = payload.get('data', {})
+            
+            # Use new Firebase Admin SDK
+            return send_fcm_notification(fcm_token, title, body, data)
             
         except Exception as e:
-            print(f"❌ FCM notification error: {e}")
+            logger.error(f"❌ FCM notification error: {e}")
             return False
     
     @staticmethod

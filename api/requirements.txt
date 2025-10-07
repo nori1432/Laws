@@ -23,6 +23,9 @@ bcrypt==4.0.1
 # HTTP requests for external APIs
 requests==2.31.0
 
+# Firebase Admin SDK for FCM push notifications
+firebase-admin==6.5.0
+
 # Optional: Rate limiting (uncomment if needed)
 # Flask-Limiter==3.5.0
 
