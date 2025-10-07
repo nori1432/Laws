@@ -53,6 +53,7 @@ class Parent(db.Model):
     mobile_password_hash = db.Column(db.String(255))
     mobile_password_plain = db.Column(db.String(50))  # Unhashed password for display
     mobile_app_enabled = db.Column(db.Boolean, default=False)
+    push_token = db.Column(db.String(500), nullable=True)  # FCM push notification token
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

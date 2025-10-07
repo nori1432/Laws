@@ -1529,8 +1529,8 @@ def register_push_token():
         token_preview = push_token[:30] + '...' if len(push_token) > 30 else push_token
         print(f"✅✅✅ Push token registered successfully!")
         print(f"👤 User: {entity_name} ({user_type})")
-        print(f"� Saved to: {token_saved_to}")
-        print(f"�🔑 Token: {token_preview}")
+        print(f"💾 Saved to: {token_saved_to}")
+        print(f"🔑 Token: {token_preview}")
         print(f"📱 Platform: {platform}")
         
         return jsonify({
