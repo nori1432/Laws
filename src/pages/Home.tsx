@@ -6,6 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { getCourseName, getCourseDescription } from '../utils/courseUtils';
 import axios from 'axios';
 import { toast } from 'sonner';
+import Footer from '../components/Footer';
 
 interface Course {
   id: number;
@@ -53,14 +54,19 @@ const Home: React.FC = () => {
 
   const fetchCourses = async () => {
     try {
+      setLoading(true);
       const params = new URLSearchParams();
       if (selectedLevel !== 'All') {
         params.append('level', selectedLevel);
       }
+      console.log('🔍 Fetching courses from:', `/api/courses?${params.toString()}`);
       const response = await axios.get(`/api/courses?${params.toString()}`);
-      setCourses(response.data.courses);
-    } catch (error) {
-      console.error('Failed to load courses');
+      console.log('✅ Courses loaded successfully:', response.data);
+      setCourses(response.data.courses || response.data || []);
+    } catch (error: any) {
+      console.error('❌ Failed to load courses:', error?.response?.data || error?.message);
+      // Set empty courses array on error so UI doesn't break
+      setCourses([]);
     } finally {
       setLoading(false);
     }
@@ -151,50 +157,50 @@ const Home: React.FC = () => {
     }
   ];
 
-  const testimonials = [
-    {
-      name: 'Sarah Johnson',
-      role: 'Parent',
-      content: 'The academy has transformed my child\'s learning experience. The teachers are amazing and the curriculum is outstanding.',
-      rating: 5
-    },
-    {
-      name: 'Michael Chen',
-      role: 'Student',
-      content: 'I\'ve learned so much here. The interactive classes and supportive environment make learning enjoyable.',
-      rating: 5
-    },
-    {
-      name: 'Emily Davis',
-      role: 'Parent',
-      content: 'Excellent communication and regular progress updates. My child is thriving in this nurturing environment.',
-      rating: 5
-    }
-  ];
-
   return (
-    <div className={`w-full min-h-screen bg-gradient-luxury ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`w-full min-h-screen relative bg-gradient-to-br from-gray-800 via-gray-900 to-slate-900 ${isRTL ? 'rtl' : 'ltr'}`}>
+      {/* Responsive Background Images */}
+      <div className="fixed inset-0 z-0">
+        {/* Mobile/Vertical Background */}
+        <img
+          src="/lawsofsuccessvertical.png"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover md:hidden"
+        />
+        {/* Desktop/Horizontal Background */}
+        <img
+          src="/lawsofsuccesshorizontal.png"
+          alt=""
+          className="hidden md:block absolute inset-0 w-full h-full object-cover"
+        />
+        {/* Overlay for better content readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/30"></div>
+      </div>
+
       {/* Hero Section */}
-      <section className="w-full relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-luxury opacity-90"></div>
+      <section className="w-full relative overflow-hidden z-10">
         <div className="relative w-full px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
           <div className="max-w-7xl mx-auto text-center">
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
+            {/* Decorative Elements */}
+            <div className="absolute top-10 left-10 w-20 h-20 bg-yellow-400/20 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-10 right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+            
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight drop-shadow-2xl">
               {t('welcomeTo')}
-              <span className="block bg-gradient-gold bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-400 bg-clip-text text-transparent animate-gradient-x">
                 {t('lawsOfSuccess')}
               </span>
-              <span className="text-2xl md:text-3xl lg:text-4xl text-primary/90 font-medium">
+              <span className="text-2xl md:text-3xl lg:text-4xl text-yellow-300/90 font-medium drop-shadow-lg">
                 {t('academy')}
               </span>
             </h1>
-            <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl md:text-2xl text-white/90 mb-8 max-w-3xl mx-auto leading-relaxed drop-shadow-lg">
               {t('empoweringStudents')}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/courses"
-                className="px-8 py-4 bg-gradient-gold text-secondary font-bold rounded-xl hover:shadow-luxury transition-all duration-300 transform hover:scale-105 flex items-center justify-center"
+                className="px-8 py-4 bg-gradient-to-r from-yellow-400 to-amber-500 text-gray-900 font-bold rounded-2xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center shadow-xl"
               >
                 {t('exploreCourses')}
                 <ArrowRight className="ml-2 w-5 h-5" />
@@ -202,7 +208,7 @@ const Home: React.FC = () => {
               {!isAuthenticated && (
                 <Link
                   to="/register"
-                  className="px-8 py-4 border-2 border-primary text-primary font-bold rounded-xl hover:bg-primary hover:text-secondary transition-all duration-300"
+                  className="px-8 py-4 backdrop-blur-md bg-white/10 border-2 border-white/50 text-white font-bold rounded-2xl hover:bg-white/20 transition-all duration-300 transform hover:scale-105 shadow-xl"
                 >
                   {t('joinNow')}
                 </Link>
@@ -213,26 +219,26 @@ const Home: React.FC = () => {
       </section>
 
       {/* Features Section */}
-      <section className="w-full py-20 bg-background">
+      <section className="w-full py-20 relative z-10">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 drop-shadow-lg">
                 {t('whyChooseUs')}
               </h2>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-xl text-white/80 max-w-2xl mx-auto drop-shadow">
                 {t('whyChooseUsDesc')}
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {features.map((feature, index) => (
-                <div key={index} className="bg-card p-6 rounded-xl shadow-luxury hover:shadow-dark transition-all duration-300 transform hover:-translate-y-2">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <div className="text-primary">{feature.icon}</div>
+                <div key={index} className="backdrop-blur-lg bg-white/10 p-6 rounded-2xl border border-white/20 shadow-2xl hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-3xl">
+                  <div className="w-12 h-12 bg-yellow-400/20 rounded-xl flex items-center justify-center mb-4 backdrop-blur-sm">
+                    <div className="text-yellow-300">{feature.icon}</div>
                   </div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">{feature.title}</h3>
-                  <p className="text-muted-foreground">{feature.description}</p>
+                  <h3 className="text-xl font-bold text-white mb-2 drop-shadow">{feature.title}</h3>
+                  <p className="text-white/80 drop-shadow-sm">{feature.description}</p>
                 </div>
               ))}
             </div>
@@ -241,14 +247,14 @@ const Home: React.FC = () => {
       </section>
 
       {/* Courses Section */}
-      <section className="w-full py-20 bg-secondary">
+      <section className="w-full py-20 relative z-10">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 drop-shadow-lg">
                 {t('availableCourses')}
               </h2>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-xl text-white/80 max-w-2xl mx-auto drop-shadow">
                 {t('exploreCoursesDesc')}
               </p>
             </div>
@@ -267,10 +273,10 @@ const Home: React.FC = () => {
                   <button
                     key={level.id}
                     onClick={() => setSelectedLevel(level.id)}
-                    className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
+                    className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
                       selectedLevel === level.id
-                        ? 'bg-primary text-primary-foreground shadow-luxury'
-                        : 'bg-card text-card-foreground hover:bg-card/80'
+                        ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-gray-900 shadow-2xl'
+                        : 'backdrop-blur-md bg-white/10 text-white border border-white/20 hover:bg-white/20'
                     }`}
                   >
                     {level.name}
@@ -281,28 +287,28 @@ const Home: React.FC = () => {
 
             {loading ? (
               <div className="text-center py-12">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-muted-foreground">{t('loadingCourses')}</p>
+                <div className="w-8 h-8 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-white/80">{t('loadingCourses')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
                 {getCoursesByLevel(selectedLevel).map((course) => (
-                  <div key={course.id} className="bg-card rounded-xl shadow-luxury overflow-hidden hover:shadow-dark transition-all duration-300 transform hover:-translate-y-2">
+                  <div key={course.id} className="backdrop-blur-lg bg-white/10 rounded-2xl border border-white/20 shadow-2xl overflow-hidden hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-3xl">
                     <div className="p-6">
-                      <h3 className="text-xl font-bold text-foreground mb-2">{getCourseName(course, language)}</h3>
-                      <p className="text-muted-foreground mb-4 line-clamp-3">{getCourseDescription(course, language)}</p>
+                      <h3 className="text-xl font-bold text-white mb-2 drop-shadow">{getCourseName(course, language)}</h3>
+                      <p className="text-white/80 mb-4 line-clamp-3 drop-shadow-sm">{getCourseDescription(course, language)}</p>
 
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">{t('price')}</span>
-                          <span className="font-semibold text-primary">
+                          <span className="text-sm text-white/70">{t('price')}</span>
+                          <span className="font-semibold text-yellow-300 drop-shadow">
                             {course.pricing_info ? course.pricing_info.display_price : `${course.price} DA`}
                           </span>
                         </div>
                         {course.pricing_info && (
                           <div className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">{t('duration')}</span>
-                            <span className="font-medium text-sm">
+                            <span className="text-sm text-white/70">{t('duration')}</span>
+                            <span className="font-medium text-sm text-white/90">
                               {course.pricing_info.session_duration_hours ? `${course.pricing_info.session_duration_hours}h ${course.pricing_info.pricing_type === 'session' ? t('perSession') : t('monthly')}` : course.pricing_info.pricing_type === 'monthly' ? t('monthly') : t('perSession')}
                             </span>
                           </div>
@@ -311,9 +317,7 @@ const Home: React.FC = () => {
 
                       <button
                         onClick={() => handleRegisterClick(course.id)}
-                        className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-300 ${
-                          'bg-gradient-gold text-secondary hover:shadow-luxury transform hover:scale-105'
-                        }`}
+                        className="w-full py-3 px-4 rounded-xl font-medium transition-all duration-300 bg-gradient-to-r from-yellow-400 to-amber-500 text-gray-900 hover:shadow-2xl transform hover:scale-105"
                       >
                         {t('registerNow')}
                       </button>
@@ -326,7 +330,7 @@ const Home: React.FC = () => {
             <div className="text-center">
               <Link
                 to="/courses"
-                className="inline-flex items-center px-8 py-4 bg-primary text-primary-foreground font-bold rounded-xl hover:shadow-luxury transition-all duration-300 transform hover:scale-105"
+                className="inline-flex items-center px-8 py-4 backdrop-blur-md bg-white/10 border-2 border-white/30 text-white font-bold rounded-2xl hover:bg-white/20 transition-all duration-300 transform hover:scale-105 shadow-xl"
               >
                 {t('viewAllCourses')}
                 <ArrowRight className="ml-2 w-5 h-5" />
@@ -336,48 +340,15 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section className="w-full py-20 bg-background">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-                {t('whatCommunitySays')}
-              </h2>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                {t('communitySaysDesc')}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {testimonials.map((testimonial, index) => (
-                <div key={index} className="bg-card p-6 rounded-xl shadow-luxury">
-                  <div className="flex items-center mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 text-primary fill-current" />
-                    ))}
-                  </div>
-                  <p className="text-muted-foreground mb-4 italic">"{testimonial.content}"</p>
-                  <div>
-                    <p className="font-bold text-foreground">{testimonial.name}</p>
-                    <p className="text-sm text-muted-foreground">{testimonial.role}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Contact Section */}
-      <section className="w-full py-20 bg-secondary">
+      <section className="w-full py-20 relative z-10">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 drop-shadow-lg">
                 {t('getInTouch')}
               </h2>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-xl text-white/80 max-w-2xl mx-auto drop-shadow">
                 {t('getInTouchDesc')}
               </p>
             </div>
@@ -386,44 +357,44 @@ const Home: React.FC = () => {
               {/* Contact Information */}
               <div className="space-y-8">
                 <div className="space-y-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <Mail className="w-6 h-6 text-primary" />
+                  <div className="flex items-center space-x-4 rtl:space-x-reverse">
+                    <div className="w-12 h-12 bg-yellow-400/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                      <Mail className="w-6 h-6 text-yellow-300" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-foreground">{t('email')}</h3>
-                      <p className="text-muted-foreground">successroadacademy@outlook.fr</p>
+                      <h3 className="font-semibold text-white drop-shadow">{t('email')}</h3>
+                      <p className="text-white/80 drop-shadow-sm">successroadacademy@outlook.fr</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <Phone className="w-6 h-6 text-primary" />
+                  <div className="flex items-center space-x-4 rtl:space-x-reverse">
+                    <div className="w-12 h-12 bg-yellow-400/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                      <Phone className="w-6 h-6 text-yellow-300" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-foreground">{t('phone')}</h3>
-                      <p className="text-muted-foreground">0791 19 74 30 / +213 791 19 74 30</p>
+                      <h3 className="font-semibold text-white drop-shadow">{t('phone')}</h3>
+                      <p className="text-white/80 drop-shadow-sm">0791 19 74 30 / +213 791 19 74 30</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <MapPin className="w-6 h-6 text-primary" />
+                  <div className="flex items-center space-x-4 rtl:space-x-reverse">
+                    <div className="w-12 h-12 bg-yellow-400/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                      <MapPin className="w-6 h-6 text-yellow-300" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-foreground">{t('address')}</h3>
-                      <p className="text-muted-foreground">CENTRE COMMERCIAL SIRABAH (قيصارية سي رابح)<br />Centre ville nedroma</p>
+                      <h3 className="font-semibold text-white drop-shadow">{t('address')}</h3>
+                      <p className="text-white/80 drop-shadow-sm">CENTRE COMMERCIAL SIRABAH (قيصارية سي رابح)<br />Centre ville nedroma</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Contact Form */}
-              <div className="bg-card rounded-xl shadow-luxury p-8">
+              <div className="backdrop-blur-lg bg-white/10 rounded-2xl border border-white/20 shadow-2xl p-8">
                 <form onSubmit={handleContactSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
+                      <label htmlFor="name" className="block text-sm font-medium text-white mb-2 drop-shadow">
                         {t('fullName')}
                       </label>
                       <input
@@ -433,13 +404,13 @@ const Home: React.FC = () => {
                         value={contactForm.name}
                         onChange={handleContactChange}
                         required
-                        className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 text-foreground placeholder-muted-foreground"
+                        className="w-full px-4 py-3 bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition-all duration-200 text-white placeholder-white/50"
                         placeholder="Your full name"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+                      <label htmlFor="email" className="block text-sm font-medium text-white mb-2 drop-shadow">
                         {t('emailAddress')}
                       </label>
                       <input
@@ -449,14 +420,14 @@ const Home: React.FC = () => {
                         value={contactForm.email}
                         onChange={handleContactChange}
                         required
-                        className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 text-foreground placeholder-muted-foreground"
+                        className="w-full px-4 py-3 bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition-all duration-200 text-white placeholder-white/50"
                         placeholder="your@email.com"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label htmlFor="subject" className="block text-sm font-medium text-foreground mb-2">
+                    <label htmlFor="subject" className="block text-sm font-medium text-white mb-2 drop-shadow">
                       {t('subject')}
                     </label>
                     <input
@@ -466,13 +437,13 @@ const Home: React.FC = () => {
                       value={contactForm.subject}
                       onChange={handleContactChange}
                       required
-                      className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 text-foreground placeholder-muted-foreground"
+                      className="w-full px-4 py-3 bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition-all duration-200 text-white placeholder-white/50"
                       placeholder="What's this about?"
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="message" className="block text-sm font-medium text-foreground mb-2">
+                    <label htmlFor="message" className="block text-sm font-medium text-white mb-2 drop-shadow">
                       {t('message')}
                     </label>
                     <textarea
@@ -482,7 +453,7 @@ const Home: React.FC = () => {
                       onChange={handleContactChange}
                       required
                       rows={6}
-                      className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 text-foreground placeholder-muted-foreground resize-none"
+                      className="w-full px-4 py-3 bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition-all duration-200 text-white placeholder-white/50 resize-none"
                       placeholder="Tell us how we can help you..."
                     />
                   </div>
@@ -490,11 +461,11 @@ const Home: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full bg-gradient-gold text-secondary py-3 px-6 rounded-lg font-medium hover:shadow-luxury transition-all duration-300 transform hover:scale-105 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 text-gray-900 py-3 px-6 rounded-xl font-medium hover:shadow-2xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-secondary border-t-transparent rounded-full animate-spin mr-2"></div>
+                        <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin mr-2"></div>
                         {t('sending')}
                       </>
                     ) : (
@@ -571,6 +542,8 @@ const Home: React.FC = () => {
         </div>
       </section>
 
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };
