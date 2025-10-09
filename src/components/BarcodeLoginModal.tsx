@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Camera, X } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL, API_ENDPOINTS } from '../config/api';
 
@@ -37,17 +38,92 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  const handleBarcodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!barcode.trim()) return;
+  // Start camera for barcode scanning
+  const startCamera = async () => {
+    try {
+      setCameraError('');
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } // Use back camera on mobile
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setShowCamera(true);
+    } catch (err) {
+      console.error('Camera access error:', err);
+      setCameraError('Camera access denied. Please allow camera access and try again.');
+    }
+  };
+
+  // Stop camera
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setShowCamera(false);
+    setCameraError('');
+  };
+
+  // Detect barcode from video stream using BarcodeDetector API
+  const detectBarcode = async () => {
+    if (!videoRef.current || !showCamera) return;
+
+    try {
+      // Check if BarcodeDetector is supported
+      if ('BarcodeDetector' in window) {
+        const barcodeDetector = new (window as any).BarcodeDetector({
+          formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code']
+        });
+        
+        const barcodes = await barcodeDetector.detect(videoRef.current);
+        
+        if (barcodes.length > 0) {
+          const detectedBarcode = barcodes[0].rawValue;
+          setBarcode(detectedBarcode);
+          stopCamera();
+          // Automatically submit the barcode
+          handleBarcodeSubmitWithValue(detectedBarcode);
+        }
+      } else {
+        // Fallback: Manual capture
+        setCameraError('Barcode detection not supported on this browser. Please enter manually.');
+      }
+    } catch (err) {
+      console.error('Barcode detection error:', err);
+    }
+  };
+
+  // Continuous barcode detection
+  useEffect(() => {
+    if (showCamera) {
+      const interval = setInterval(detectBarcode, 500); // Check every 500ms
+      return () => clearInterval(interval);
+    }
+  }, [showCamera]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  const handleBarcodeSubmitWithValue = async (barcodeValue: string) => {
+    if (!barcodeValue.trim()) return;
 
     setIsLoading(true);
     setError('');
 
     try {
       const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.VALIDATE_BARCODE}`, {
-        barcode: barcode.trim()
+        barcode: barcodeValue.trim()
       });
 
       setStudentInfo(response.data.student);
@@ -61,6 +137,11 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleBarcodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await handleBarcodeSubmitWithValue(barcode);
   };
 
   const handleSetupSubmit = async (e: React.FormEvent) => {
@@ -121,6 +202,7 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
   };
 
   const resetModal = () => {
+    stopCamera(); // Stop camera if active
     setBarcode('');
     setStudentInfo(null);
     setShowSetupForm(false);
@@ -128,6 +210,7 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
     setPassword('');
     setConfirmPassword('');
     setError('');
+    setCameraError('');
     onClose();
   };
 
@@ -159,32 +242,80 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
             </div>
           )}
 
+          {/* Camera Error Message */}
+          {cameraError && (
+            <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <p className="text-yellow-600 dark:text-yellow-400 text-sm">{cameraError}</p>
+            </div>
+          )}
+
           {!showSetupForm ? (
             /* Barcode Input Form */
-            <form onSubmit={handleBarcodeSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  {t('barcode')}
-                </label>
-                <input
-                  type="text"
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  className="block w-full px-3 py-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-center text-lg font-mono"
-                  placeholder="123456789"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
+            <div className="space-y-4">
+              {/* Camera View */}
+              {showCamera && (
+                <div className="relative">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full rounded-lg border-2 border-primary"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="border-2 border-primary bg-primary/10 rounded-lg w-3/4 h-1/2"></div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                  <p className="text-center mt-2 text-sm text-muted-foreground">
+                    Position barcode within the frame
+                  </p>
+                </div>
+              )}
 
-              <button
-                type="submit"
-                className="w-full py-3 px-4 bg-gradient-gold text-secondary rounded-lg font-medium hover:shadow-luxury transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading || !barcode.trim()}
-              >
-                {isLoading ? t('validating') : t('validateBarcode')}
-              </button>
-            </form>
+              {!showCamera && (
+                <form onSubmit={handleBarcodeSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      {t('barcode')}
+                    </label>
+                    <input
+                      type="text"
+                      value={barcode}
+                      onChange={(e) => setBarcode(e.target.value)}
+                      className="block w-full px-3 py-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-center text-lg font-mono"
+                      placeholder="123456789"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      className="flex-1 py-3 px-4 bg-gradient-gold text-secondary rounded-lg font-medium hover:shadow-luxury transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isLoading || !barcode.trim()}
+                    >
+                      {isLoading ? t('validating') : t('validateBarcode')}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all duration-300 flex items-center gap-2"
+                      disabled={isLoading}
+                    >
+                      <Camera className="w-5 h-5" />
+                      <span className="hidden sm:inline">Scan</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           ) : (
             /* Setup Form */
             <div className="space-y-4">
