@@ -19,7 +19,7 @@ import Landing from './pages/Landing';
 import LittleStars from './pages/LittleStars';
 import About from './pages/About';
 import Courses from './pages/Courses';
-
+import WebCourse from './pages/WebCourse';
 import Contact from './pages/Contact';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -55,6 +55,7 @@ function AppContent() {
         <Route path="/" element={<Landing />} />
         <Route path="/home" element={isAuthenticated ? <Dashboard /> : <Home />} />
         <Route path="/little-stars" element={<LittleStars />} />
+        <Route path="/web-course" element={<WebCourse />} />
         {isAuthenticated ? (
           <>
             <Route path="/about" element={<About />} />
