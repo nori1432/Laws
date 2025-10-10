@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 
@@ -33,18 +33,21 @@ import { LanguageProvider } from './contexts/LanguageContext';
 
 function AppContent() {
   const [showFirstVisitModal, setShowFirstVisitModal] = React.useState(false);
+  const location = useLocation();
 
   React.useEffect(() => {
-    // Check if this is the first visit
+    // Check if this is the first visit and not on web-course page
     const hasVisited = localStorage.getItem('hasVisitedBefore');
-    if (!hasVisited) {
+    const isOnWebCourse = location.pathname === '/web-course';
+    
+    if (!hasVisited && !isOnWebCourse) {
       // Show modal after a short delay to ensure everything is loaded
       const timer = setTimeout(() => {
         setShowFirstVisitModal(true);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [location.pathname]);
 
   // Conditional Routes Component
   const ConditionalRoutes: React.FC = () => {
