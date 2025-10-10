@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Camera, X } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL, API_ENDPOINTS } from '../config/api';
+import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 
 interface BarcodeLoginModalProps {
   isOpen: boolean;
@@ -40,73 +41,91 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
   const [error, setError] = useState('');
   const [showCamera, setShowCamera] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [cameraLoading, setCameraLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
+  const scanningRef = useRef<boolean>(false);
 
-  // Start camera for barcode scanning
+  // Start camera for barcode scanning with ZXing
   const startCamera = async () => {
     try {
       setCameraError('');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } // Use back camera on mobile
+      setCameraLoading(true);
+      
+      // Initialize ZXing code reader
+      if (!codeReaderRef.current) {
+        codeReaderRef.current = new BrowserMultiFormatReader();
+      }
+
+      const codeReader = codeReaderRef.current;
+
+      // Request camera access
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } }
       });
+      
       streamRef.current = stream;
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await videoRef.current.play();
       }
+
       setShowCamera(true);
-    } catch (err) {
+      setCameraLoading(false);
+      scanningRef.current = true;
+
+      // Start continuous decoding
+      const startDecoding = async () => {
+        while (scanningRef.current && videoRef.current) {
+          try {
+            const result = await codeReader.decodeFromVideoElement(videoRef.current);
+            if (result && scanningRef.current) {
+              const detectedBarcode = result.getText();
+              console.log('Barcode detected:', detectedBarcode);
+              setBarcode(detectedBarcode);
+              stopCamera();
+              handleBarcodeSubmitWithValue(detectedBarcode);
+              break;
+            }
+          } catch (err) {
+            if (!(err instanceof NotFoundException)) {
+              console.error('Decode error:', err);
+            }
+            // Continue scanning
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+      };
+
+      startDecoding();
+
+    } catch (err: any) {
       console.error('Camera access error:', err);
-      setCameraError('Camera access denied. Please allow camera access and try again.');
+      setCameraError(err.message || 'Camera access denied. Please allow camera access in your browser settings and try again.');
+      setCameraLoading(false);
+      setShowCamera(false);
     }
   };
 
   // Stop camera
   const stopCamera = () => {
+    scanningRef.current = false;
+    
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
     setShowCamera(false);
     setCameraError('');
+    setCameraLoading(false);
   };
-
-  // Detect barcode from video stream using BarcodeDetector API
-  const detectBarcode = async () => {
-    if (!videoRef.current || !showCamera) return;
-
-    try {
-      // Check if BarcodeDetector is supported
-      if ('BarcodeDetector' in window) {
-        const barcodeDetector = new (window as any).BarcodeDetector({
-          formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code']
-        });
-        
-        const barcodes = await barcodeDetector.detect(videoRef.current);
-        
-        if (barcodes.length > 0) {
-          const detectedBarcode = barcodes[0].rawValue;
-          setBarcode(detectedBarcode);
-          stopCamera();
-          // Automatically submit the barcode
-          handleBarcodeSubmitWithValue(detectedBarcode);
-        }
-      } else {
-        // Fallback: Manual capture
-        setCameraError('Barcode detection not supported on this browser. Please enter manually.');
-      }
-    } catch (err) {
-      console.error('Barcode detection error:', err);
-    }
-  };
-
-  // Continuous barcode detection
-  useEffect(() => {
-    if (showCamera) {
-      const interval = setInterval(detectBarcode, 500); // Check every 500ms
-      return () => clearInterval(interval);
-    }
-  }, [showCamera]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -218,7 +237,7 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-xl shadow-luxury max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-card rounded-xl shadow-luxury max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           {/* Header */}
           <div className="text-center mb-6">
@@ -252,32 +271,44 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
           {!showSetupForm ? (
             /* Barcode Input Form */
             <div className="space-y-4">
+              {/* Camera Loading State */}
+              {cameraLoading && (
+                <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                  <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-muted-foreground">Starting camera...</p>
+                </div>
+              )}
+
               {/* Camera View */}
-              {showCamera && (
-                <div className="relative">
+              {showCamera && !cameraLoading && (
+                <div className="relative bg-black rounded-lg overflow-hidden">
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
-                    className="w-full rounded-lg border-2 border-primary"
+                    muted
+                    className="w-full h-[400px] object-cover rounded-lg"
+                    style={{ minHeight: '400px' }}
                   />
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="border-2 border-primary bg-primary/10 rounded-lg w-3/4 h-1/2"></div>
+                    <div className="border-4 border-primary bg-primary/10 rounded-lg w-[85%] h-[60%] shadow-lg"></div>
                   </div>
                   <button
                     type="button"
                     onClick={stopCamera}
-                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                    className="absolute top-4 right-4 p-3 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg z-10"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-6 h-6" />
                   </button>
-                  <p className="text-center mt-2 text-sm text-muted-foreground">
-                    Position barcode within the frame
-                  </p>
+                  <div className="absolute bottom-4 left-0 right-0 text-center">
+                    <p className="text-white text-sm font-medium bg-black/50 px-4 py-2 rounded-lg inline-block">
+                      Position barcode within the frame
+                    </p>
+                  </div>
                 </div>
               )}
 
-              {!showCamera && (
+              {!showCamera && !cameraLoading && (
                 <form onSubmit={handleBarcodeSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
@@ -306,11 +337,11 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
                     <button
                       type="button"
                       onClick={startCamera}
-                      className="py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all duration-300 flex items-center gap-2"
-                      disabled={isLoading}
+                      className="py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all duration-300 flex items-center gap-2 disabled:opacity-50"
+                      disabled={isLoading || cameraLoading}
                     >
                       <Camera className="w-5 h-5" />
-                      <span className="hidden sm:inline">Scan</span>
+                      <span>{cameraLoading ? 'Loading...' : 'Scan'}</span>
                     </button>
                   </div>
                 </form>
