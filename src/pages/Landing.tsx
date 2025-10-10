@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Star, Sparkles, Heart, BookOpen, Users, Award, ArrowRight, Zap } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import Footer from '../components/Footer';
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
@@ -197,9 +196,6 @@ const Landing: React.FC = () => {
           ))}
         </div>
       </div>
-
-      {/* Footer */}
-      <Footer />
     </div>
   );
 };

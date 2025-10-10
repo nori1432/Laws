@@ -4,7 +4,6 @@ import { Heart, Star, Sparkles, Sun, Moon, Cloud, Rainbow, Flower, Bird, Music, 
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import axios from 'axios';
-import Footer from '../components/Footer';
 
 interface Course {
   id: number;
@@ -360,9 +359,6 @@ const LittleStars: React.FC = () => {
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <Footer />
     </div>
   );
 };

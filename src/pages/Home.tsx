@@ -6,7 +6,6 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { getCourseName, getCourseDescription } from '../utils/courseUtils';
 import axios from 'axios';
 import { toast } from 'sonner';
-import Footer from '../components/Footer';
 
 interface Course {
   id: number;
@@ -76,22 +75,26 @@ const Home: React.FC = () => {
     if (level === 'All') return courses.slice(0, 6); // Show first 6 for overview
 
     return courses.filter(course => {
-      const courseName = getCourseName(course, language);
+      const courseName = getCourseName(course, language).toLowerCase();
       if (level === 'preschool') {
         return courseName.includes('روضة') ||
                courseName.includes('تمهيدي') ||
                courseName.includes('تحضيري') ||
-               courseName.toLowerCase().includes('preschool') ||
-               courseName.toLowerCase().includes('preparatory');
+               courseName.includes('preschool') ||
+               courseName.includes('preparatory') ||
+               courseName.includes('kindergarten');
       } else if (level === 'primary') {
         return courseName.includes('ابتدائي') ||
-               courseName.toLowerCase().includes('primary');
+               courseName.includes('primary') ||
+               courseName.includes('elementary');
       } else if (level === 'middle') {
         return courseName.includes('متوسط') ||
-               courseName.toLowerCase().includes('middle');
+               courseName.includes('middle') ||
+               courseName.includes('intermediate');
       } else if (level === 'high') {
         return courseName.includes('ثانوي') ||
-               courseName.toLowerCase().includes('high');
+               courseName.includes('high') ||
+               courseName.includes('secondary');
       }
       return false;
     }).slice(0, 6);
@@ -267,8 +270,7 @@ const Home: React.FC = () => {
                   { id: 'preschool', name: t('preschoolLevel'), nameEn: 'Preschool' },
                   { id: 'primary', name: t('primaryLevel'), nameEn: 'Primary' },
                   { id: 'middle', name: t('middleLevel'), nameEn: 'Middle School' },
-                  { id: 'high', name: t('highLevel'), nameEn: 'High School' },
-                  { id: 'bachelor', name: t('bachelorLevel'), nameEn: 'Bachelor' }
+                  { id: 'high', name: t('highLevel'), nameEn: 'High School' }
                 ].map((level) => (
                   <button
                     key={level.id}
@@ -541,9 +543,6 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <Footer />
     </div>
   );
 };
