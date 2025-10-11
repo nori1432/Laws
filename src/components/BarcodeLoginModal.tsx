@@ -6,6 +6,8 @@ import { Camera, X } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL, API_ENDPOINTS } from '../config/api';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import Tesseract from 'tesseract.js';
+import { createWorker } from 'tesseract.js';
 
 interface BarcodeLoginModalProps {
   isOpen: boolean;
@@ -46,9 +48,11 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
   const [videoPlaying, setVideoPlaying] = useState(false);
     const [scannedBarcode, setScannedBarcode] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
-  const scanningRef = useRef<boolean>(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Check camera support on mount
   useEffect(() => {
@@ -73,7 +77,7 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
     checkCameraSupport();
   }, []);
 
-  // Start camera - Ultra simplified approach
+  // Start camera - Show live preview
   const startCamera = async () => {
     console.log('🚀 Starting camera...');
     
@@ -82,62 +86,58 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
       setCameraError('');
       setCameraLoading(true);
       setVideoPlaying(false);
+      setScannedBarcode('');
+      setCapturedImage(null);
+      setIsProcessing(false);
       
-      // Show camera container immediately
+      // Show camera container
       setShowCamera(true);
       
-      // Clean up any existing streams
+      // Clean up existing stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      
+      if (codeReaderRef.current) {
+        try {
+          codeReaderRef.current.reset();
+          codeReaderRef.current = null;
+        } catch (e) {
+          console.log('Code reader reset:', e);
+        }
       }
 
-      // Get camera stream
+      // Wait for DOM
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      if (!videoRef.current) {
+        throw new Error('Video element not found');
+      }
+
       console.log('📷 Requesting camera...');
+      
+      // Get camera stream
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
-          width: 640,
-          height: 480
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         }
       });
 
       streamRef.current = stream;
-      console.log('✅ Got stream:', stream.active);
+      console.log('✅ Got camera stream');
 
-      // Wait a moment for DOM
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      if (videoRef.current) {
-        const video = videoRef.current;
-        
-        // Set video source
-        video.srcObject = stream;
-        
-        // Force play
-        try {
-          await video.play();
-          console.log('✅ Video playing');
-          setVideoPlaying(true);
-          setCameraLoading(false);
-          
-          // Start scanning
-          scanningRef.current = true;
-          startBarcodeScanning();
-          
-        } catch (playErr) {
-          console.error('Play error:', playErr);
-          // Try alternative approach
-          video.muted = true;
-          video.playsInline = true;
-          await video.play();
-          setVideoPlaying(true);
-          setCameraLoading(false);
-          scanningRef.current = true;
-          startBarcodeScanning();
-        }
-      } else {
-        throw new Error('Video element not found');
-      }
+      // Set video source and play
+      const video = videoRef.current;
+      video.srcObject = stream;
+      
+      await video.play();
+      console.log('▶️ Video playing');
+      
+      setCameraLoading(false);
+      setVideoPlaying(true);
       
     } catch (err: any) {
       console.error('❌ Camera failed:', err);
@@ -147,80 +147,193 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
     }
   };
 
-  // Separate function for barcode scanning
-  const startBarcodeScanning = async () => {
-    console.log('🔍 Starting barcode scanning...');
-    
-    // Initialize ZXing code reader
-    if (!codeReaderRef.current) {
-      codeReaderRef.current = new BrowserMultiFormatReader();
+  // Capture photo and detect barcode
+  const captureAndDetect = async () => {
+    if (!videoRef.current || !canvasRef.current) {
+      console.error('❌ Video or canvas not ready');
+      return;
     }
-    
-    const scan = async () => {
-      if (!scanningRef.current || !videoRef.current || !codeReaderRef.current) {
-        return;
+
+    setIsProcessing(true);
+    console.log('📸 Capturing image...');
+
+    try {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        throw new Error('Canvas context not available');
       }
+
+      // Set canvas size to video size
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      // Draw current video frame to canvas
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Get image data URL
+      const imageDataUrl = canvas.toDataURL('image/png');
+      setCapturedImage(imageDataUrl);
+      console.log('✅ Image captured');
+
+      // Initialize code reader if needed
+      if (!codeReaderRef.current) {
+        codeReaderRef.current = new BrowserMultiFormatReader();
+        console.log('✅ Created BrowserMultiFormatReader');
+      }
+
+      console.log('🔍 Detecting barcode from captured image...');
+
+      // Try ZXing detection first
+      let barcodeText = '';
+      let detectionMethod = '';
 
       try {
-        const result = await codeReaderRef.current.decodeFromVideoElement(videoRef.current);
-        if (result && scanningRef.current) {
-          const barcode = result.getText();
-          console.log('📊 Barcode detected:', barcode);
+        // Create a temporary image element from canvas
+        const img = new Image();
+        img.src = imageDataUrl;
+        
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+
+        console.log('📷 Image loaded, trying ZXing detection...');
+
+        // Detect barcode from image element
+        const result = await codeReaderRef.current.decodeFromImageElement(img);
+        
+        if (result) {
+          barcodeText = result.getText();
+          const format = result.getBarcodeFormat();
+          detectionMethod = 'ZXing';
+          console.log('✅ ZXing detected barcode!');
+          console.log('📊 Value:', barcodeText);
+          console.log('📋 Format:', format);
+        }
+      } catch (zxingError) {
+        console.log('⚠️ ZXing failed, trying OCR text extraction...');
+        
+        // ZXing failed, try OCR for text extraction
+        console.log('🔤 Starting Tesseract OCR...');
+        
+        const { data: { text } } = await Tesseract.recognize(
+          imageDataUrl,
+          'eng',
+          {
+            logger: (m) => {
+              if (m.status === 'recognizing text') {
+                console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
+              }
+            }
+          }
+        );
+        
+        console.log('📝 OCR Raw text:', text);
+        
+        // Extract barcode that starts with ESS or STUD
+        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        let foundBarcode = '';
+        
+        for (const line of lines) {
+          // Remove spaces and special characters, keep only alphanumeric
+          const cleaned = line.replace(/[^A-Z0-9]/gi, '').toUpperCase();
           
-          // Stop scanning and process barcode
-          scanningRef.current = false;
-            setScannedBarcode(barcode);
-            setBarcode(barcode); // Show in input
-            stopCamera();
-            // Auto-submit barcode
-            handleBarcodeSubmitWithValue(barcode);
-          return;
+          // Check if starts with ESS or STUD
+          if (cleaned.startsWith('ESS') || cleaned.startsWith('STUD')) {
+            foundBarcode = cleaned;
+            console.log('✅ Found barcode with ESS/STUD prefix:', foundBarcode);
+            break;
+          }
         }
-      } catch (err) {
-        if (!(err instanceof NotFoundException)) {
-          console.error('🚫 Scan error:', err);
+        
+        if (foundBarcode) {
+          barcodeText = foundBarcode;
+          detectionMethod = 'OCR';
+          console.log('✅ OCR extracted barcode:', barcodeText);
+        } else {
+          throw new Error('No barcode starting with ESS or STUD found');
         }
       }
-
-      // Continue scanning
-      if (scanningRef.current) {
-        setTimeout(scan, 100);
+      
+      if (barcodeText) {
+        console.log('✅ 🎉 BARCODE DETECTED!');
+        console.log('📊 Final Value:', barcodeText);
+        console.log('� Detection Method:', detectionMethod);
+        
+        setScannedBarcode(barcodeText);
+        setBarcode(barcodeText);
+        
+        // Stop camera and process
+        setTimeout(() => {
+          stopCamera();
+          handleBarcodeSubmitWithValue(barcodeText);
+        }, 1000);
+      } else {
+        throw new Error('No barcode detected by either method');
       }
-    };
-
-    // Start scanning with a small delay
-    setTimeout(scan, 500);
+      
+    } catch (error: any) {
+      console.error('❌ Detection failed:', error);
+      
+      // More helpful error message
+      if (error.message && error.message.includes('No MultiFormat Readers')) {
+        setCameraError('❌ Barcode not detected. Tips: 1) Ensure good lighting 2) Hold barcode flat 3) Barcode should start with ESS or STUD. Try again!');
+      } else if (error.message && error.message.includes('ESS or STUD')) {
+        setCameraError('❌ No barcode starting with ESS or STUD found. Please ensure barcode text is visible and try again.');
+      } else {
+        setCameraError('❌ Detection failed. Ensure good lighting and barcode starts with ESS or STUD. Try again!');
+      }
+      
+      setIsProcessing(false);
+      // Keep captured image so user can see what was captured
+      // setCapturedImage(null); // Don't clear so they can retry
+    }
+  };
+  
+  // Retry capture - clear captured image and error
+  const retryCapture = () => {
+    setCapturedImage(null);
+    setCameraError('');
+    setIsProcessing(false);
   };
 
   // Stop camera
   const stopCamera = () => {
-    console.log('Stopping camera...');
-    scanningRef.current = false;
+    console.log('🛑 Stopping camera...');
     
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        track.stop();
-        console.log('Stopped track:', track.kind);
-      });
-      streamRef.current = null;
-    }
-    
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    
+    // Reset code reader
     if (codeReaderRef.current) {
       try {
         codeReaderRef.current.reset();
       } catch (err) {
-        console.log('Error resetting code reader:', err);
+        console.log('Code reader reset error:', err);
       }
     }
     
+    // Stop stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('✅ Stopped track:', track.kind);
+      });
+      streamRef.current = null;
+    }
+    
+    // Clear video
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
+    // Reset states
     setShowCamera(false);
     setVideoPlaying(false);
     setCameraError('');
     setCameraLoading(false);
+    setCapturedImage(null);
+    setIsProcessing(false);
   };
 
   // Cleanup on unmount
@@ -319,6 +432,7 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
   const resetModal = () => {
     stopCamera(); // Stop camera if active
     setBarcode('');
+    setScannedBarcode('');
     setStudentInfo(null);
     setShowSetupForm(false);
     setPhone('');
@@ -369,8 +483,8 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
             <div className="space-y-4">
               {/* Camera View */}
               {showCamera && (
-                <div className="relative w-full h-[400px] bg-black rounded-lg overflow-hidden shadow-lg border-2 border-gray-300">
-                  {/* Video Element */}
+                <div className="relative w-full h-[500px] bg-black rounded-lg overflow-hidden shadow-lg border-2 border-gray-300">
+                  {/* Video Element - Live Camera Feed */}
                   <video
                     ref={videoRef}
                     autoPlay={true}
@@ -380,24 +494,27 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
                     className="absolute inset-0 w-full h-full object-cover"
                     style={{
                       backgroundColor: '#000000',
-                      display: 'block',
+                      display: capturedImage ? 'none' : 'block',
                       width: '100%',
                       height: '100%',
                       objectFit: 'cover'
                     }}
-                    onLoadedMetadata={() => {
-                      console.log('📺 Video metadata loaded');
-                      setVideoPlaying(true);
-                      setCameraLoading(false);
-                    }}
-                    onCanPlay={() => {
-                      console.log('🎬 Video can play');
-                    }}
-                    onError={(e) => {
-                      console.error('❌ Video element error:', e);
-                      setCameraError('Video playback failed');
-                    }}
                   />
+                  
+                  {/* Hidden Canvas for Capture */}
+                  <canvas
+                    ref={canvasRef}
+                    style={{ display: 'none' }}
+                  />
+                  
+                  {/* Captured Image Display */}
+                  {capturedImage && (
+                    <img
+                      src={capturedImage}
+                      alt="Captured"
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  )}
                   
                   {/* Loading Overlay */}
                   {cameraLoading && (
@@ -409,13 +526,24 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
                     </div>
                   )}
                   
-                  {/* Scanning Frame */}
-                  {!cameraLoading && (
+                  {/* Processing Overlay */}
+                  {isProcessing && (
+                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-20">
+                      <div className="text-center text-white">
+                        <div className="w-16 h-16 border-4 border-green-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-lg font-bold mb-2">🔍 Detecting Barcode...</p>
+                        <p className="text-sm">Please wait</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Scanning Frame Guide */}
+                  {!cameraLoading && !capturedImage && !isProcessing && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                      <div className="border-4 border-green-400 bg-green-400/10 rounded-lg w-[300px] h-[200px] shadow-2xl">
+                      <div className="border-4 border-green-400 bg-green-400/10 rounded-lg w-[90%] h-[250px] shadow-2xl">
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="text-green-400 text-xs font-bold bg-black/60 px-2 py-1 rounded">
-                            SCAN AREA
+                          <div className="text-green-400 text-xs font-bold bg-black/60 px-3 py-1 rounded">
+                            ALIGN BARCODE HERE
                           </div>
                         </div>
                       </div>
@@ -427,29 +555,68 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
                     type="button"
                     onClick={stopCamera}
                     className="absolute top-3 right-3 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg z-30"
+                    disabled={isProcessing}
                   >
                     <X className="w-5 h-5" />
                   </button>
                   
                   {/* Status Bar */}
                   <div className="absolute top-3 left-3 bg-black/80 text-white px-3 py-1 rounded-full text-xs font-medium z-30">
-                    {cameraLoading ? '🔄 Starting...' : videoPlaying ? '📹 Live' : '⏳ Loading...'}
+                    {cameraLoading ? '🔄 Starting...' : isProcessing ? '🔍 Processing...' : videoPlaying ? '📹 Live' : '⏳ Loading...'}
                   </div>
                   
-                  {/* Instructions */}
-                  <div className="absolute bottom-3 left-0 right-0 text-center z-30">
-                    <div className="inline-block bg-black/80 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                      📱 Hold barcode steady in the green frame
+                  {/* Capture Button */}
+                  {videoPlaying && !capturedImage && !isProcessing && (
+                    <div className="absolute bottom-3 left-0 right-0 flex justify-center z-30">
+                      <button
+                        type="button"
+                        onClick={captureAndDetect}
+                        className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-full font-bold text-lg shadow-2xl transform hover:scale-105 transition-all flex items-center gap-3"
+                      >
+                        <Camera className="w-6 h-6" />
+                        📸 Capture & Detect Barcode
+                      </button>
                     </div>
-                  </div>
-                    {/* Scanned Barcode Display */}
-                    {scannedBarcode && (
-                      <div className="absolute bottom-16 left-0 right-0 text-center z-30">
-                        <div className="inline-block bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold animate-pulse">
-                          {t('barcodeDetected')}: {scannedBarcode}
-                        </div>
+                  )}
+                  
+                  {/* Retry Button - Show when capture failed */}
+                  {capturedImage && !scannedBarcode && !isProcessing && (
+                    <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-3 z-30">
+                      <button
+                        type="button"
+                        onClick={retryCapture}
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-bold shadow-2xl transform hover:scale-105 transition-all flex items-center gap-2"
+                      >
+                        🔄 Try Again
+                      </button>
+                      <button
+                        type="button"
+                        onClick={captureAndDetect}
+                        className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-full font-bold shadow-2xl transform hover:scale-105 transition-all flex items-center gap-2"
+                      >
+                        🔍 Retry Detection
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Instructions */}
+                  {!capturedImage && !isProcessing && (
+                    <div className="absolute bottom-20 left-0 right-0 text-center z-30 px-4">
+                      <div className="inline-block bg-black/90 text-white px-4 py-3 rounded-lg text-sm font-medium space-y-1">
+                        <p className="font-bold">📱 Position barcode in green frame</p>
+                        <p className="text-xs">💡 Tips: Good lighting • Hold steady • Fill frame • Keep barcode flat</p>
                       </div>
-                    )}
+                    </div>
+                  )}
+                  
+                  {/* Scanned Barcode Display */}
+                  {scannedBarcode && (
+                    <div className="absolute top-20 left-0 right-0 text-center z-30">
+                      <div className="inline-block bg-green-600 text-white px-6 py-3 rounded-lg text-xl font-bold animate-pulse shadow-2xl">
+                        ✅ Detected: {scannedBarcode}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -589,4 +756,3 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
 };
 
 export default BarcodeLoginModal;
-
