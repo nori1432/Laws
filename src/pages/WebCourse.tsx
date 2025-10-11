@@ -107,11 +107,11 @@ const WebCourse: React.FC = () => {
       {/* Floating Language Switch Button */}
       <button
         onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-        className="fixed top-6 right-6 z-50 bg-gradient-to-r from-primary-500 to-primary-600 text-secondary-900 p-4 rounded-full shadow-2xl hover:shadow-primary-500/50 transform hover:scale-110 transition-all duration-300 flex items-center gap-2 font-bold border-2 border-primary-400/30"
+        className="fixed top-24 right-6 z-50 bg-gradient-to-r from-primary-500 to-primary-600 text-secondary-900 p-3 rounded-full shadow-xl hover:shadow-primary-500/50 transform hover:scale-110 transition-all duration-300 flex items-center gap-1.5 font-semibold border-2 border-primary-400/30"
         aria-label="Switch Language"
       >
-        <Languages size={24} />
-        <span className="text-sm uppercase tracking-wide">
+        <Languages size={18} />
+        <span className="text-xs uppercase tracking-wide">
           {language === 'ar' ? 'EN' : 'AR'}
         </span>
       </button>
