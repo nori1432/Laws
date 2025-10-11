@@ -44,6 +44,7 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
   const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraSupported, setCameraSupported] = useState(true);
   const [videoPlaying, setVideoPlaying] = useState(false);
+    const [scannedBarcode, setScannedBarcode] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
@@ -168,9 +169,11 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
           
           // Stop scanning and process barcode
           scanningRef.current = false;
-          setBarcode(barcode);
-          stopCamera();
-          handleBarcodeSubmitWithValue(barcode);
+            setScannedBarcode(barcode);
+            setBarcode(barcode); // Show in input
+            stopCamera();
+            // Auto-submit barcode
+            handleBarcodeSubmitWithValue(barcode);
           return;
         }
       } catch (err) {
@@ -439,50 +442,59 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
                       📱 Hold barcode steady in the green frame
                     </div>
                   </div>
+                    {/* Scanned Barcode Display */}
+                    {scannedBarcode && (
+                      <div className="absolute bottom-16 left-0 right-0 text-center z-30">
+                        <div className="inline-block bg-green-600 text-white px-4 py-2 rounded-lg text-lg font-bold animate-pulse">
+                          {t('barcodeDetected')}: {scannedBarcode}
+                        </div>
+                      </div>
+                    )}
                 </div>
               )}
 
-              {!showCamera && !cameraLoading && (
-                <form onSubmit={handleBarcodeSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      {t('barcode')}
-                    </label>
-                    <input
-                      type="text"
-                      value={barcode}
-                      onChange={(e) => setBarcode(e.target.value)}
-                      className="block w-full px-3 py-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-center text-lg font-mono"
-                      placeholder="123456789"
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
+                {/* Show input and scan button only if camera is not active */}
+                {!showCamera && !cameraLoading && (
+                  <form onSubmit={handleBarcodeSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        {t('barcode')}
+                      </label>
+                      <input
+                        type="text"
+                        value={barcode}
+                        onChange={(e) => setBarcode(e.target.value)}
+                        className="block w-full px-3 py-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-center text-lg font-mono"
+                        placeholder="123456789"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      className="flex-1 py-3 px-4 bg-gradient-gold text-secondary rounded-lg font-medium hover:shadow-luxury transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={isLoading || !barcode.trim()}
-                    >
-                      {isLoading ? t('validating') : t('validateBarcode')}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        className="flex-1 py-3 px-4 bg-gradient-gold text-secondary rounded-lg font-medium hover:shadow-luxury transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isLoading || !barcode.trim()}
+                      >
+                        {isLoading ? t('validating') : t('validateBarcode')}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={startCamera}
-                      className="py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all duration-300 flex items-center gap-2 disabled:opacity-50"
-                      disabled={isLoading || cameraLoading || !cameraSupported}
-                      title={!cameraSupported ? "Camera not supported" : "Click to start camera barcode scanner"}
-                    >
-                      <Camera className="w-5 h-5" />
-                      <span>
-                        {!cameraSupported ? 'Not Available' : cameraLoading ? 'Starting...' : 'Scan'}
-                      </span>
-                    </button>
-                  </div>
-                </form>
-              )}
+                      <button
+                        type="button"
+                        onClick={startCamera}
+                        className="py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all duration-300 flex items-center gap-2 disabled:opacity-50"
+                        disabled={isLoading || cameraLoading || !cameraSupported}
+                        title={!cameraSupported ? "Camera not supported" : "Click to start camera barcode scanner"}
+                      >
+                        <Camera className="w-5 h-5" />
+                        <span>
+                          {!cameraSupported ? 'Not Available' : cameraLoading ? 'Starting...' : 'Scan'}
+                        </span>
+                      </button>
+                    </div>
+                  </form>
+                )}
             </div>
           ) : (
             /* Setup Form */
