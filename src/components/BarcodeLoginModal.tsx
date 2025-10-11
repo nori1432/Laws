@@ -589,3 +589,4 @@ const BarcodeLoginModal: React.FC<BarcodeLoginModalProps> = ({ isOpen, onClose, 
 };
 
 export default BarcodeLoginModal;
+
