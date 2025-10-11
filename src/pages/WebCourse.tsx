@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Code, Laptop, Rocket, Calendar, DollarSign, Target, CheckCircle, Sparkles, Zap, Brain, Database, Layout, Globe } from 'lucide-react';
+import { Code, Laptop, Rocket, Calendar, DollarSign, Target, CheckCircle, Sparkles, Zap, Brain, Database, Layout, Globe, Languages } from 'lucide-react';
 import WebCourseRegistrationModal from '../components/WebCourseRegistrationModal';
 
 const WebCourse: React.FC = () => {
-  const { language, isRTL } = useLanguage();
+  const { language, isRTL, setLanguage } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const content = {
@@ -104,6 +104,18 @@ const WebCourse: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary-900 via-accent-900 to-secondary-800">
+      {/* Floating Language Switch Button */}
+      <button
+        onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
+        className="fixed top-6 right-6 z-50 bg-gradient-to-r from-primary-500 to-primary-600 text-secondary-900 p-4 rounded-full shadow-2xl hover:shadow-primary-500/50 transform hover:scale-110 transition-all duration-300 flex items-center gap-2 font-bold border-2 border-primary-400/30"
+        aria-label="Switch Language"
+      >
+        <Languages size={24} />
+        <span className="text-sm uppercase tracking-wide">
+          {language === 'ar' ? 'EN' : 'AR'}
+        </span>
+      </button>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-primary-500/20 to-primary-600/20"></div>
