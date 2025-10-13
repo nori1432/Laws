@@ -36,11 +36,12 @@ function AppContent() {
   const location = useLocation();
 
   React.useEffect(() => {
-    // Check if this is the first visit and not on web-course page
+    // Check if this is the first visit and on login/register pages
     const hasVisited = localStorage.getItem('hasVisitedBefore');
-    const isOnWebCourse = location.pathname === '/web-course';
+    const isOnLoginPage = location.pathname === '/login';
+    const isOnRegisterPage = location.pathname === '/register';
     
-    if (!hasVisited && !isOnWebCourse) {
+    if (!hasVisited && (isOnLoginPage || isOnRegisterPage)) {
       // Show modal after a short delay to ensure everything is loaded
       const timer = setTimeout(() => {
         setShowFirstVisitModal(true);
