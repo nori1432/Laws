@@ -26,6 +26,7 @@ import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import CompetitionForm from './pages/CompetitionForm';
 
 // Context
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -60,6 +61,7 @@ function AppContent() {
         <Route path="/home" element={isAuthenticated ? <Dashboard /> : <Home />} />
         <Route path="/little-stars" element={<LittleStars />} />
         <Route path="/web-course" element={<WebCourse />} />
+        <Route path="/competition" element={<CompetitionForm />} />
         {isAuthenticated ? (
           <>
             <Route path="/about" element={<About />} />
