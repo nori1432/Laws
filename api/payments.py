@@ -206,8 +206,12 @@ def get_monthly_payments_due():
     """Get enrollments that need monthly payments"""
     if request.method == 'OPTIONS':
         return jsonify({'message': 'CORS preflight'}), 200
+    
+    jwt_identity = get_jwt_identity()
+    if not jwt_identity:
+        return jsonify({'error': 'Authentication required'}), 401
         
-    current_user_id = int(get_jwt_identity())
+    current_user_id = int(jwt_identity)
     user = User.query.get(current_user_id)
 
     if not user or user.role != 'admin':
@@ -428,8 +432,12 @@ def get_pending_payments():
     """Get all pending payments (Admin only)"""
     if request.method == 'OPTIONS':
         return jsonify({'message': 'CORS preflight'}), 200
+    
+    jwt_identity = get_jwt_identity()
+    if not jwt_identity:
+        return jsonify({'error': 'Authentication required'}), 401
         
-    current_user_id = int(get_jwt_identity())
+    current_user_id = int(jwt_identity)
     user = User.query.get(current_user_id)
 
     if not user or user.role != 'admin':
