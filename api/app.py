@@ -19,6 +19,7 @@ from mobile import mobile_bp
 from contact import contact_bp
 from payments import payments_bp
 from attendance import attendance_bp
+from competition import competition_bp
 
 # Configure logging
 logging.basicConfig(
@@ -233,6 +234,7 @@ def create_app(config_class=Config):
             app.register_blueprint(mobile_bp, url_prefix='/api/mobile')
             app.register_blueprint(contact_bp, url_prefix='/api/contact')
             app.register_blueprint(attendance_bp, url_prefix='/api/attendance')
+            app.register_blueprint(competition_bp, url_prefix='/api/competition')
         except Exception as blueprint_error:
             logger.warning(f"Blueprint registration failed: {blueprint_error}")
 
