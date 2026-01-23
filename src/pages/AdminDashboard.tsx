@@ -55,7 +55,9 @@ import {
   CheckCircle,
   Search,
   Languages,
-  Info
+  Info,
+  ExternalLink,
+  Smile
 } from 'lucide-react';
 import AttendanceOverview from '../components/AttendanceOverview';
 
@@ -802,6 +804,16 @@ const AdminDashboard: React.FC = () => {
   const [showKindergartenAttendanceModal, setShowKindergartenAttendanceModal] = useState(false);
   const [showKindergartenPaymentModal, setShowKindergartenPaymentModal] = useState(false);
   
+  // Competition Management States
+  const [competitionSubmissions, setCompetitionSubmissions] = useState<any[]>([]);
+  const [competitionStats, setCompetitionStats] = useState<any>(null);
+  const [competitionLoading, setCompetitionLoading] = useState(false);
+  const [competitionSearchTerm, setCompetitionSearchTerm] = useState('');
+  const [competitionStatusFilter, setCompetitionStatusFilter] = useState('all');
+  const [competitionAgeFilter, setCompetitionAgeFilter] = useState('all');
+  const [selectedCompetitionSubmission, setSelectedCompetitionSubmission] = useState<any>(null);
+  const [showCompetitionDetailModal, setShowCompetitionDetailModal] = useState(false);
+  
   // Test modal visibility with a simple state
   const [testModalVisible, setTestModalVisible] = useState(false);
   
@@ -1240,6 +1252,60 @@ const AdminDashboard: React.FC = () => {
       toast.error('Error fetching registrations');
     }
   };
+
+  // Fetch Competition Submissions
+  const fetchCompetitionData = async () => {
+    setCompetitionLoading(true);
+    try {
+      const [submissionsRes, statsRes] = await Promise.all([
+        axios.get('/api/competition/submissions'),
+        axios.get('/api/competition/stats')
+      ]);
+      setCompetitionSubmissions(submissionsRes.data.submissions || []);
+      setCompetitionStats(statsRes.data);
+    } catch (error) {
+      console.error('Error fetching competition data:', error);
+      toast.error('فشل في جلب بيانات المسابقة');
+    } finally {
+      setCompetitionLoading(false);
+    }
+  };
+
+  // Update competition submission status
+  const updateCompetitionStatus = async (submissionId: number, status: string, notes?: string) => {
+    try {
+      await axios.put(`/api/competition/submissions/${submissionId}/status`, {
+        status,
+        admin_notes: notes
+      });
+      toast.success('تم تحديث الحالة بنجاح');
+      fetchCompetitionData();
+    } catch (error) {
+      console.error('Error updating submission status:', error);
+      toast.error('فشل في تحديث الحالة');
+    }
+  };
+
+  // Delete competition submission
+  const deleteCompetitionSubmission = async (submissionId: number) => {
+    if (!confirm('هل أنت متأكد من حذف هذا التسجيل؟')) return;
+    try {
+      await axios.delete(`/api/competition/submissions/${submissionId}`);
+      toast.success('تم حذف التسجيل بنجاح');
+      fetchCompetitionData();
+      setShowCompetitionDetailModal(false);
+    } catch (error) {
+      console.error('Error deleting submission:', error);
+      toast.error('فشل في حذف التسجيل');
+    }
+  };
+
+  // Fetch competition data when tab is active
+  useEffect(() => {
+    if (activeTab === 'competition') {
+      fetchCompetitionData();
+    }
+  }, [activeTab]);
 
   // Fetch registrations when tab is active
   useEffect(() => {
@@ -3436,6 +3502,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'schedule-control', name: t('adminScheduleControlTab'), icon: Calendar },
     { id: 'attendance', name: 'Attendance System', icon: UserCheck },
     { id: 'content-management', name: 'Content & Support', icon: FileText },
+    { id: 'competition', name: '🏆 مسابقة الطفل', icon: Award },
   ];
 
   // Contact message handlers
@@ -7232,6 +7299,442 @@ const AdminDashboard: React.FC = () => {
                   setMarkingAttendance={setMarkingAttendance}
                 />
               )}
+            </div>
+          )}
+
+          {/* Competition Management Tab */}
+          {activeTab === 'competition' && (
+            <div className="space-y-6" dir="rtl">
+              {/* Competition Header */}
+              <div className="bg-neutral-900 rounded-2xl p-6 border border-neutral-800">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-xl">
+                      <Award className="w-8 h-8 text-neutral-900" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-white">مسابقة الطفل اللبيب</h2>
+                      <p className="text-neutral-400">إدارة تسجيلات المسابقة - الطبعة الثانية</p>
+                    </div>
+                  </div>
+                  <a
+                    href="/competition"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-2.5 bg-amber-500 text-neutral-900 rounded-xl font-bold hover:bg-amber-400 transition-all flex items-center gap-2"
+                  >
+                    <ExternalLink className="w-5 h-5" />
+                    فتح صفحة التسجيل
+                  </a>
+                </div>
+              </div>
+
+              {/* Stats Grid */}
+              {competitionStats && (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 hover:border-amber-500/50 transition-all">
+                    <div className="flex items-center justify-between mb-2">
+                      <Users className="w-5 h-5 text-amber-500" />
+                    </div>
+                    <div className="text-3xl font-bold text-white">{competitionStats.total || 0}</div>
+                    <div className="text-xs text-neutral-400 mt-1">إجمالي التسجيلات</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 border border-neutral-200 hover:border-amber-500/50 transition-all">
+                    <div className="flex items-center justify-between mb-2">
+                      <Clock className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div className="text-3xl font-bold text-neutral-900">{competitionStats.by_status?.pending || 0}</div>
+                    <div className="text-xs text-neutral-500 mt-1">قيد الانتظار</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 border border-neutral-200 hover:border-amber-500/50 transition-all">
+                    <div className="flex items-center justify-between mb-2">
+                      <Eye className="w-5 h-5 text-neutral-600" />
+                    </div>
+                    <div className="text-3xl font-bold text-neutral-900">{competitionStats.by_status?.reviewed || 0}</div>
+                    <div className="text-xs text-neutral-500 mt-1">تمت المراجعة</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 border border-neutral-200 hover:border-amber-500/50 transition-all">
+                    <div className="flex items-center justify-between mb-2">
+                      <CheckCircle className="w-5 h-5 text-neutral-800" />
+                    </div>
+                    <div className="text-3xl font-bold text-neutral-900">{competitionStats.by_status?.approved || 0}</div>
+                    <div className="text-xs text-neutral-500 mt-1">مقبول</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 border border-neutral-200 hover:border-amber-500/50 transition-all">
+                    <div className="flex items-center justify-between mb-2">
+                      <XCircle className="w-5 h-5 text-neutral-500" />
+                    </div>
+                    <div className="text-3xl font-bold text-neutral-900">{competitionStats.by_status?.rejected || 0}</div>
+                    <div className="text-xs text-neutral-500 mt-1">مرفوض</div>
+                  </div>
+                  <div className="bg-amber-500 rounded-xl p-4 hover:bg-amber-400 transition-all">
+                    <div className="flex items-center justify-between mb-2">
+                      <GraduationCap className="w-5 h-5 text-neutral-900" />
+                    </div>
+                    <div className="text-3xl font-bold text-neutral-900">{competitionStats.by_participation_type?.kindergarten || 0}</div>
+                    <div className="text-xs text-neutral-800 mt-1">من الروضات</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Age Categories */}
+              {competitionStats && (
+                <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Star className="w-5 h-5 text-amber-500" />
+                    توزيع الفئات العمرية
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-white rounded-xl p-5 text-center border-2 border-transparent hover:border-amber-500 transition-all">
+                      <div className="text-4xl font-bold text-neutral-900">{competitionStats.by_age_category?.['3'] || 0}</div>
+                      <div className="text-sm text-neutral-600 mt-1">فئة 3 سنوات</div>
+                    </div>
+                    <div className="bg-amber-500 rounded-xl p-5 text-center hover:bg-amber-400 transition-all">
+                      <div className="text-4xl font-bold text-neutral-900">{competitionStats.by_age_category?.['4'] || 0}</div>
+                      <div className="text-sm text-neutral-800 mt-1">فئة 4 سنوات</div>
+                    </div>
+                    <div className="bg-white rounded-xl p-5 text-center border-2 border-transparent hover:border-amber-500 transition-all">
+                      <div className="text-4xl font-bold text-neutral-900">{competitionStats.by_age_category?.['5'] || 0}</div>
+                      <div className="text-sm text-neutral-600 mt-1">فئة 5 سنوات</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Filters */}
+              <div className="bg-white rounded-xl p-4 border border-neutral-200 shadow-sm">
+                <div className="flex flex-wrap gap-3 items-center">
+                  <div className="flex-1 min-w-[200px] relative">
+                    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-5 h-5" />
+                    <input
+                      type="text"
+                      placeholder="البحث عن مشارك..."
+                      value={competitionSearchTerm}
+                      onChange={(e) => setCompetitionSearchTerm(e.target.value)}
+                      className="w-full pr-10 pl-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all text-neutral-900 placeholder-neutral-400"
+                    />
+                  </div>
+                  <select
+                    value={competitionStatusFilter}
+                    onChange={(e) => setCompetitionStatusFilter(e.target.value)}
+                    className="px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-amber-500 cursor-pointer text-neutral-900"
+                  >
+                    <option value="all">جميع الحالات</option>
+                    <option value="pending">قيد الانتظار</option>
+                    <option value="reviewed">تمت المراجعة</option>
+                    <option value="approved">مقبول</option>
+                    <option value="rejected">مرفوض</option>
+                  </select>
+                  <select
+                    value={competitionAgeFilter}
+                    onChange={(e) => setCompetitionAgeFilter(e.target.value)}
+                    className="px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-amber-500 cursor-pointer text-neutral-900"
+                  >
+                    <option value="all">جميع الفئات</option>
+                    <option value="3">فئة 3 سنوات</option>
+                    <option value="4">فئة 4 سنوات</option>
+                    <option value="5">فئة 5 سنوات</option>
+                  </select>
+                  <button
+                    onClick={fetchCompetitionData}
+                    className="px-4 py-2.5 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-all flex items-center gap-2 font-medium"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${competitionLoading ? 'animate-spin' : ''}`} />
+                    تحديث
+                  </button>
+                </div>
+              </div>
+
+              {/* Submissions Table */}
+              {competitionLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-neutral-900 text-white">
+                        <tr>
+                          <th className="px-4 py-4 text-right text-sm font-semibold">#</th>
+                          <th className="px-4 py-4 text-right text-sm font-semibold">اسم الطفل</th>
+                          <th className="px-4 py-4 text-right text-sm font-semibold">الولي</th>
+                          <th className="px-4 py-4 text-right text-sm font-semibold">الهاتف</th>
+                          <th className="px-4 py-4 text-right text-sm font-semibold">الفئة</th>
+                          <th className="px-4 py-4 text-right text-sm font-semibold">النوع</th>
+                          <th className="px-4 py-4 text-right text-sm font-semibold">الحالة</th>
+                          <th className="px-4 py-4 text-center text-sm font-semibold">الإجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-100">
+                        {competitionSubmissions
+                          .filter(sub => {
+                            const matchesSearch = competitionSearchTerm === '' ||
+                              sub.child_full_name?.toLowerCase().includes(competitionSearchTerm.toLowerCase()) ||
+                              sub.guardian_full_name?.toLowerCase().includes(competitionSearchTerm.toLowerCase()) ||
+                              sub.phone1?.includes(competitionSearchTerm);
+                            const matchesStatus = competitionStatusFilter === 'all' || sub.status === competitionStatusFilter;
+                            const matchesAge = competitionAgeFilter === 'all' || sub.age_category === competitionAgeFilter;
+                            return matchesSearch && matchesStatus && matchesAge;
+                          })
+                          .map((submission, idx) => (
+                            <tr key={submission.id} className="hover:bg-neutral-50 transition-colors">
+                              <td className="px-4 py-4 text-sm text-neutral-500">{idx + 1}</td>
+                              <td className="px-4 py-4">
+                                <div className="font-semibold text-neutral-900">{submission.child_full_name}</div>
+                                <div className="text-xs text-neutral-500">{submission.gender === 'male' ? 'ذكر' : 'أنثى'} • {submission.age} سنة</div>
+                              </td>
+                              <td className="px-4 py-4 text-sm text-neutral-700">{submission.guardian_full_name}</td>
+                              <td className="px-4 py-4 text-sm text-neutral-700 font-mono" dir="ltr">{submission.phone1}</td>
+                              <td className="px-4 py-4">
+                                <span className="inline-flex px-3 py-1 rounded-full text-xs font-bold bg-neutral-100 text-neutral-800 border border-neutral-300">
+                                  {submission.age_category} سنوات
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 text-sm">
+                                {submission.participation_type === 'kindergarten' ? (
+                                  <span className="text-amber-600 font-medium">{submission.kindergarten_name || 'روضة'}</span>
+                                ) : (
+                                  <span className="text-neutral-500">حر</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-4">
+                                <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${
+                                  submission.status === 'approved' ? 'bg-neutral-900 text-white' :
+                                  submission.status === 'rejected' ? 'bg-neutral-200 text-neutral-600 line-through' :
+                                  submission.status === 'reviewed' ? 'bg-neutral-700 text-white' :
+                                  'bg-amber-500 text-neutral-900'
+                                }`}>
+                                  {submission.status === 'approved' ? 'مقبول' :
+                                   submission.status === 'rejected' ? 'مرفوض' :
+                                   submission.status === 'reviewed' ? 'تمت المراجعة' : 'انتظار'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => { setSelectedCompetitionSubmission(submission); setShowCompetitionDetailModal(true); }}
+                                    className="p-2 text-neutral-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
+                                    title="عرض التفاصيل"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => updateCompetitionStatus(submission.id, 'approved')}
+                                    className="p-2 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-all"
+                                    title="قبول"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => updateCompetitionStatus(submission.id, 'rejected')}
+                                    className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-lg transition-all"
+                                    title="رفض"
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteCompetitionSubmission(submission.id)}
+                                    className="p-2 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-all"
+                                    title="حذف"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {/* Empty State */}
+                  {competitionSubmissions.length === 0 && (
+                    <div className="py-16 text-center">
+                      <Award className="w-16 h-16 text-neutral-300 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-neutral-700 mb-2">لا توجد تسجيلات</h3>
+                      <p className="text-neutral-500">سيظهر هنا جميع تسجيلات مسابقة الطفل اللبيب</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Competition Detail Modal */}
+          {showCompetitionDetailModal && selectedCompetitionSubmission && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" dir="rtl" onClick={() => setShowCompetitionDetailModal(false)}>
+              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                {/* Modal Header */}
+                <div className="bg-neutral-900 p-6 border-b-4 border-amber-500">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h2 className="text-2xl font-bold text-white">{selectedCompetitionSubmission.child_full_name}</h2>
+                      <p className="text-neutral-400 text-sm mt-1">تسجيل رقم #{selectedCompetitionSubmission.id}</p>
+                    </div>
+                    <button
+                      onClick={() => setShowCompetitionDetailModal(false)}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors text-neutral-400 hover:text-white"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
+                  {/* Status */}
+                  <div className="flex justify-center">
+                    <span className={`px-6 py-2 rounded-full text-sm font-bold ${
+                      selectedCompetitionSubmission.status === 'approved' ? 'bg-neutral-900 text-white' :
+                      selectedCompetitionSubmission.status === 'rejected' ? 'bg-neutral-200 text-neutral-500 line-through' :
+                      selectedCompetitionSubmission.status === 'reviewed' ? 'bg-neutral-700 text-white' :
+                      'bg-amber-500 text-neutral-900'
+                    }`}>
+                      {selectedCompetitionSubmission.status === 'approved' ? 'مقبول' :
+                       selectedCompetitionSubmission.status === 'rejected' ? 'مرفوض' :
+                       selectedCompetitionSubmission.status === 'reviewed' ? 'تمت المراجعة' : 'قيد الانتظار'}
+                    </span>
+                  </div>
+
+                  {/* Child Info */}
+                  <div className="bg-amber-50 rounded-xl p-4 border border-amber-300">
+                    <h3 className="font-bold text-neutral-900 mb-3 flex items-center gap-2">
+                      <Smile className="w-5 h-5 text-amber-500" />
+                      معلومات الطفل
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-neutral-500 block">الاسم الكامل</span>
+                        <span className="font-semibold text-neutral-800">{selectedCompetitionSubmission.child_full_name}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500 block">الجنس</span>
+                        <span className="font-semibold text-neutral-800">{selectedCompetitionSubmission.gender === 'male' ? 'ذكر' : 'أنثى'}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500 block">تاريخ الميلاد</span>
+                        <span className="font-semibold text-neutral-800">{selectedCompetitionSubmission.birth_date ? new Date(selectedCompetitionSubmission.birth_date).toLocaleDateString('ar-DZ') : '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500 block">العمر</span>
+                        <span className="font-semibold text-neutral-800">{selectedCompetitionSubmission.age} سنة</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500 block">الفئة العمرية</span>
+                        <span className="inline-flex px-2 py-1 rounded-full text-xs font-bold bg-neutral-900 text-white">
+                          فئة {selectedCompetitionSubmission.age_category} سنوات
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Guardian Info */}
+                  <div className="bg-neutral-100 rounded-xl p-4 border border-neutral-300">
+                    <h3 className="font-bold text-neutral-900 mb-3 flex items-center gap-2">
+                      <User className="w-5 h-5 text-neutral-700" />
+                      معلومات الولي
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-neutral-500 block">الاسم الكامل</span>
+                        <span className="font-semibold text-neutral-800">{selectedCompetitionSubmission.guardian_full_name}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500 block">الهاتف 1</span>
+                        <span className="font-semibold text-neutral-800 font-mono" dir="ltr">{selectedCompetitionSubmission.phone1}</span>
+                      </div>
+                      {selectedCompetitionSubmission.phone2 && (
+                        <div>
+                          <span className="text-neutral-500 block">الهاتف 2</span>
+                          <span className="font-semibold text-neutral-800 font-mono" dir="ltr">{selectedCompetitionSubmission.phone2}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Address */}
+                  {(selectedCompetitionSubmission.address || selectedCompetitionSubmission.city) && (
+                    <div className="bg-white rounded-xl p-4 border border-neutral-300">
+                      <h3 className="font-bold text-neutral-900 mb-3 flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-amber-500" />
+                        العنوان
+                      </h3>
+                      <p className="text-neutral-800">
+                        {selectedCompetitionSubmission.address}
+                        {selectedCompetitionSubmission.address && selectedCompetitionSubmission.city && ' - '}
+                        {selectedCompetitionSubmission.city}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Participation Type */}
+                  <div className={`rounded-xl p-4 border ${
+                    selectedCompetitionSubmission.participation_type === 'kindergarten'
+                      ? 'bg-amber-50 border-amber-300'
+                      : 'bg-neutral-50 border-neutral-200'
+                  }`}>
+                    <h3 className="font-bold mb-3 flex items-center gap-2 text-neutral-900">
+                      <Users className="w-5 h-5 text-amber-500" />
+                      نوع المشاركة
+                    </h3>
+                    <p className="font-semibold text-neutral-800 mb-2">
+                      {selectedCompetitionSubmission.participation_type === 'kindergarten' ? 'تحت إشراف روضة' : 'مشارك حر'}
+                    </p>
+                    {selectedCompetitionSubmission.participation_type === 'kindergarten' && (
+                      <div className="mt-2 space-y-1 text-sm border-t border-amber-300 pt-2">
+                        <div>
+                          <span className="text-neutral-500">اسم الروضة: </span>
+                          <span className="font-semibold text-neutral-800">{selectedCompetitionSubmission.kindergarten_name}</span>
+                        </div>
+                        {selectedCompetitionSubmission.supervisor_name && (
+                          <div>
+                            <span className="text-neutral-500">المربية/المشرفة: </span>
+                            <span className="font-semibold text-neutral-800">{selectedCompetitionSubmission.supervisor_name}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Timestamp */}
+                  <div className="text-center text-sm text-neutral-500 border-t border-neutral-200 pt-4">
+                    تاريخ التسجيل: {selectedCompetitionSubmission.created_at ? new Date(selectedCompetitionSubmission.created_at).toLocaleString('ar-DZ') : '-'}
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="p-5 bg-neutral-100 border-t border-neutral-200 flex flex-wrap justify-center gap-2">
+                  <button
+                    onClick={() => { updateCompetitionStatus(selectedCompetitionSubmission.id, 'approved'); setShowCompetitionDetailModal(false); }}
+                    className="px-5 py-2.5 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-all flex items-center gap-2 font-semibold"
+                  >
+                    <CheckCircle className="w-5 h-5" />
+                    قبول
+                  </button>
+                  <button
+                    onClick={() => { updateCompetitionStatus(selectedCompetitionSubmission.id, 'reviewed'); setShowCompetitionDetailModal(false); }}
+                    className="px-5 py-2.5 bg-neutral-700 text-white rounded-xl hover:bg-neutral-600 transition-all flex items-center gap-2 font-semibold"
+                  >
+                    <Eye className="w-5 h-5" />
+                    تم الاطلاع
+                  </button>
+                  <button
+                    onClick={() => { updateCompetitionStatus(selectedCompetitionSubmission.id, 'rejected'); setShowCompetitionDetailModal(false); }}
+                    className="px-5 py-2.5 bg-neutral-400 text-white rounded-xl hover:bg-neutral-500 transition-all flex items-center gap-2 font-semibold"
+                  >
+                    <XCircle className="w-5 h-5" />
+                    رفض
+                  </button>
+                  <button
+                    onClick={() => deleteCompetitionSubmission(selectedCompetitionSubmission.id)}
+                    className="px-5 py-2.5 bg-amber-500 text-neutral-900 rounded-xl hover:bg-amber-400 transition-all flex items-center gap-2 font-semibold"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    حذف
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
